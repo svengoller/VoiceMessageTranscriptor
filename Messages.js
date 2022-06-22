@@ -2,7 +2,7 @@
 // if text == undefined its a voice message
 export const mockup_messages = [
     {
-        sender: 'Alex',
+        sender: 'Alexander',
         text: 'When is the IUI Homework due?'
     },
     {
