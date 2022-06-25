@@ -13,10 +13,12 @@ export const mockup_messages = [
         text: 'Yeah, I think so too!'
     },
     {
-        sender: 'Brian'
+        sender: 'Barack',
         // is a voice message therefore no text
+        audio: require('./assets/voice_messages/barackobamafederalplaza.mp3')
     },
     {
-        
+        sender: 'Kids',
+        audio: require('./assets/voice_messages/4th_Graders_Talk_About_Sports.wav')
     }
 ]
