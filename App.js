@@ -136,6 +136,7 @@ const VoiceMessage = (props) => {
   const [playAtPos, setPlayAtPos] = useState(-1) // if this is changed a useEffect hook skips in the voice message
   const [setToPos, setSetToPos] = useState(-1)
   const timestamp_ref = useRef()
+  const [playAtMillis, setPlayAtMillis] = useState(-1)
 
   function timeToString(millis) {
     const minutes = Math.floor(millis / 60000)
@@ -166,26 +167,21 @@ const VoiceMessage = (props) => {
     })
   ).current;
 
-  const set_time_from_animation = (position) => {
-    const setToMillis = Math.floor(position/progressBarWidth * duration)
-    console.log("Postiton: " + position + " Duration: " + duration + " Setting to: " + setToMillis)
-    setPlayAtMillis(setToMillis)
+  const set_time = async (setToMillis, duration) => {
+    await sound.setPositionAsync(setToMillis)
+    if (isPlaying) start_animation(setToMillis, duration)
   }
 
   useEffect(() => {
-    console.log("PLAY AT POS: " + playAtPos)
-    if (playAtPos < 0) return
-
-    const set_time = async (position, duration) => {
-      const setToMillis =  position/progressBarWidth * duration
-      console.log("PLAYING AT: " + setToMillis)
-      await sound.setPositionAsync(setToMillis)
-      start_animation(setToMillis, duration)
-      setPlayAtPos(-1)
-    }
-
-    set_time(playAtPos, duration)
-  }, [playAtPos])
+    console.log("PLAY AT TIME: " + playAtPos)
+    if (playAtPos < 0 && playAtMillis < 0) return
+    
+    const setToMillis =  playAtMillis < 0 ? playAtPos/progressBarWidth * duration : playAtMillis
+    set_time(setToMillis, duration)
+    animate_to_time(setToMillis, duration)
+    setPlayAtPos(-1)
+    setPlayAtMillis(-1)
+  }, [playAtPos, playAtMillis])
 
   const start_animation = (current, duration) => {
     Animated.timing(progressAnim, {
@@ -199,12 +195,13 @@ const VoiceMessage = (props) => {
     progressAnim.stopAnimation();
   }
 
+  const animate_to_time = (current_time, duration) => {
+    const position = current_time / duration * progressBarWidth
+    progressAnim.setValue(position)
+  }
+
   const reset_animation = () => {
-    Animated.timing(progressAnim, {
-      toValue: 0,
-      duration: 0,
-      easing: Easing.linear,
-    }).start()
+    progressAnim.setValue(0)
   }
   
   const source = message.audio
@@ -219,7 +216,7 @@ const VoiceMessage = (props) => {
     setIsPlaying(status.isPlaying)
     if (status.durationMillis > 0) {
       setDuration(status.durationMillis)
-      console.log("SETTING DURATION: " + duration)
+      //console.log("SETTING DURATION: " + duration)
     }
     setRemainingTimeText(timeToString(status.positionMillis == 0 && status.durationMillis ? status.durationMillis : status.positionMillis))   // durationMillis doesn't work on web... but on ios
     if (status.didJustFinish) {
@@ -229,7 +226,7 @@ const VoiceMessage = (props) => {
   }
 
   useEffect(() => {
-    console.log(isFinishedPlaying)
+    //console.log(isFinishedPlaying)
   }, [isFinishedPlaying])
   
   useEffect(() => {
@@ -301,7 +298,7 @@ const VoiceMessage = (props) => {
       </View>
       {
         showTranscription ? 
-          <Transcription {...props}/>
+          <Transcription {...props} setPlayAtMillis = {setPlayAtMillis}/>
         :
           null
       }
@@ -342,7 +339,7 @@ const Transcription = (props) => {
       <View style={{flexDirection: 'row', width: '100%'}}>
         <View style={styles.separator}/>
       </View>
-      <Text style={styles.regularFont}>{showSummary && summary ? summary.summary : transcription.text}</Text>
+      <Text style={styles.regularFont}>{showSummary && summary ? summary.summary : <TranscriptionWordwise {...props} transcription = {transcription}/>}</Text>
       <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20}}>
         <Pressable 
           style = {styles.transcriptionPressable}
@@ -354,6 +351,32 @@ const Transcription = (props) => {
       </View>
     </View>
   )
+}
+
+const TranscriptionWordwise = (props) => {
+  const words = props.transcription.words
+
+  console.log(props.transcription.text)
+
+  function toMillis(time_str) {
+    const array = time_str.split(":")
+    const milliseconds = parseInt(array[0] * 60 * 60, 10) + parseInt(array[1] * 60, 10) + parseFloat(array[2], 10) * 1000
+    return milliseconds
+  }
+
+  return(
+    <View style = {{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
+      {
+        words.map((word, index) => {
+          const start_millis = toMillis(word.start_time)
+          return <Pressable onPress = {() => {
+            props.setPlayAtMillis(start_millis)
+          }}><Text>{word.word + " "}</Text></Pressable>
+        })
+      }
+    </View>
+  )
+  
 }
 
 /**
