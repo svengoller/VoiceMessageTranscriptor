@@ -15,10 +15,7 @@ export const mockup_messages = [
     {
         sender: 'Barack',
         // is a voice message therefore no text
-        audio: require('./assets/voice_messages/barackobamafederalplaza.mp3')
+        audio: require('./assets/voice_messages/barack_obama.wav'),
+        filename: 'barack_obama.wav'
     },
-    {
-        sender: 'Kids',
-        audio: require('./assets/voice_messages/4th_Graders_Talk_About_Sports.wav')
-    }
 ]
