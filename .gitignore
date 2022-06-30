@@ -17,3 +17,4 @@ web-build/
 .venv/
 backend/.vmt_venv
 backend/__pycache__/backend.cpython-38.pyc
+backend/__pycache__/backend.cpython-310.pyc
