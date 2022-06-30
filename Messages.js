@@ -13,9 +13,9 @@ export const mockup_messages = [
         text: 'Yeah, I think so too!'
     },
     {
-        sender: 'Barack',
+        sender: 'Ted',
         // is a voice message therefore no text
-        audio: require('./assets/voice_messages/barack_obama.wav'),
-        filename: 'barack_obama.wav'
+        audio: require('./assets/voice_messages/ted_talk2.wav'),
+        filename: 'ted_talk2.wav'
     },
 ]
