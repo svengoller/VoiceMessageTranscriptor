@@ -1,13 +1,11 @@
 import json
 import requests
-import re
 import shelve
-from collections.abc import Mapping
 import requests
 import os
 import shelve
-from google.cloud import speech_v1 as speech
-from flask import Flask,request
+from google.cloud import speech
+from flask import Flask, request
 from flask_cors import CORS, cross_origin
 
 # Google Authentication/API
@@ -20,97 +18,100 @@ app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
+######### methods ###########################################################
+def summarize(text):
+    with shelve.open("ai21_generic_replies_storage.db") as db:
+        with  open("summarization_template.txt", "r") as f1:
+            yn_template= f1.read()
+        print("template: " + str(type(yn_template)))
+        if not (text in db):
+            print("DATABASE NOT WORKING")
+            response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
+                                    headers={"Authorization": "Bearer "+api_key},
+                                    json={
+                                        "prompt": yn_template + text + "\nsummary:",
+                                        "numResults": 1,
+                                        "maxTokens": 49,
+                                        "temperature": 0.4,
+                                        "topKReturn": 0,
+                                        "topP": 0.98,
+                                        "countPenalty": {
+                                            "scale": 0,
+                                            "applyToNumbers": False,
+                                            "applyToPunctuations": False,
+                                            "applyToStopwords": False,
+                                            "applyToWhitespaces": False,
+                                            "applyToEmojis": False
+                                        },
+                                        "frequencyPenalty": {
+                                            "scale": 0,
+                                            "applyToNumbers": False,
+                                            "applyToPunctuations": False,
+                                            "applyToStopwords": False,
+                                            "applyToWhitespaces": False,
+                                            "applyToEmojis": False
+                                        },
+                                        "presencePenalty": {
+                                            "scale": 0,
+                                            "applyToNumbers": False,
+                                            "applyToPunctuations": False,
+                                            "applyToStopwords": False,
+                                            "applyToWhitespaces": False,
+                                            "applyToEmojis": False
+                                        },
+                                        "stopSequences": ["---"]
+                                    }
+                                    )
+
+            db[text] = response
+        else:
+            response = db[text]
+        data = response.json()
+        res_text = data['completions'][0]['data']['text']
+        return res_text
+
+
+def speech_to_text_local_audio(config, audio):
+    print('starting speech to text')
+    with shelve.open("speech_to_text_db", "c") as db:
+        if not (audio in db):
+            print("NOT IN DB")
+            client = speech.SpeechClient()
+            with open(audio, 'rb') as f1:
+                byte_data = f1.read()
+            audio_wav = speech.RecognitionAudio(content=byte_data)
+            response = client.recognize(config=config,
+                                        audio=audio_wav)
+            db[audio] = response
+        else:
+            response = db[audio]
+        db.close()
+        for i, result in enumerate(response.results):
+            alternative = result.alternatives[0]
+            transcription = alternative.transcript
+            list = []
+            for i, word in enumerate(alternative.words):
+                list.append({"word": word.word, "confidence": word.confidence, "start_time": word.start_time})  # start isn't json serializable
+        return {'text': transcription, 'words': list}
 
 ######### api #################################################################
-
-@app.route('/test_func', methods = ['POST'])
-@cross_origin()
-def test_func():
-    text = request.get_json(force = True)['text']
-    return json.dumps({"text":"helllllo"})
-
-
 @app.route('/summarize', methods = ['POST'])
 @cross_origin()
-def summarize():
+def summarize_api():
     text = request.get_json(force = True)['text']
-    db = shelve.open("ai21_generic_replies_storage.db")
-    with  open("summarization_template.txt", "r") as f1:
-        yn_template= f1.read()
-    print("template: " + str(type(yn_template)))
-    if not (text in db):
-        response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
-                                 headers={"Authorization": "Bearer "+api_key},
-                                 json={
-                                     "prompt": yn_template + text + "\nsummary:",
-                                     "numResults": 1,
-                                     "maxTokens": 49,
-                                     "temperature": 0.4,
-                                     "topKReturn": 0,
-                                     "topP": 0.98,
-                                     "countPenalty": {
-                                         "scale": 0,
-                                         "applyToNumbers": False,
-                                         "applyToPunctuations": False,
-                                         "applyToStopwords": False,
-                                         "applyToWhitespaces": False,
-                                         "applyToEmojis": False
-                                     },
-                                     "frequencyPenalty": {
-                                         "scale": 0,
-                                         "applyToNumbers": False,
-                                         "applyToPunctuations": False,
-                                         "applyToStopwords": False,
-                                         "applyToWhitespaces": False,
-                                         "applyToEmojis": False
-                                     },
-                                     "presencePenalty": {
-                                         "scale": 0,
-                                         "applyToNumbers": False,
-                                         "applyToPunctuations": False,
-                                         "applyToStopwords": False,
-                                         "applyToWhitespaces": False,
-                                         "applyToEmojis": False
-                                     },
-                                     "stopSequences": ["---"]
-                                 }
-                                 )
-
-        db[text] = response
-    else:
-        response = db[text]
-    db.close()
-    data = response.json()
-    res_text = data['completions'][0]['data']['text']
-    return json.dumps({"original":text, "summarization":res_text})
+    summary = summarize(text)
+    response = json.dumps({"original":text, "summary":summary})
+    return response
 
 
 @app.route('/transcribe', methods = ['POST'])
 @cross_origin()
-def speech_to_text_local_audio(config, audio):
-    db = shelve.open("speech_to_text_replies_storage.db")
-    if not (audio in db):
-        client = speech.SpeechClient()
-        with open(audio, 'rb') as f1:
-            byte_data = f1.read()
-        audio_wav = speech.RecognitionAudio(content=byte_data)
-        response = client.recognize(config=config,
-                                    audio=audio_wav)
-        db[audio] = response
-    else:
-        response = db[audio]
-    db.close()
-    for i, result in enumerate(response.results):
-        alternative = result.alternatives[0]
-        transcription = alternative.transcript
-        list = []
-        for i, word in enumerate(alternative.words):
-            list.append(
-                {"word": word.word, "confidence": word.confidence, "time": word.start_time})
+def speech_to_text_api():
+    audio = "data/" + request.get_json(force = True)['filename']
+    transcription_dict = speech_to_text_local_audio(config_wav, audio)
+    return json.dumps(transcription_dict, default=str)
 
-    return json.dumps({"transcription": transcription, "words": list})
 
-"""
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
@@ -119,6 +120,10 @@ config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_word_confidence=True
                                       )
 
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+
+"""
 response = speech_to_text_local_audio(config_wav, "data/shortaudio.wav")
 print("audio transcription : " + response["transcription"])
 print("summary: " + summarize(response["transcription"]))

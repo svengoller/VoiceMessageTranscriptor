@@ -12,3 +12,8 @@ web-build/
 
 # macOS
 .DS_Store
+
+#pip and venv
+.venv/
+backend/.vmt_venv
+backend/__pycache__/backend.cpython-38.pyc
