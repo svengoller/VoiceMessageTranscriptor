@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, FlatList, TextInput, SafeAreaView, Animated, Easing, PanResponder} from 'react-native';
+import { StyleSheet, Text, View, FlatList, TextInput, SafeAreaView, Animated, Easing, PanResponder, Pressable} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { mockup_messages } from './Messages';
 import { Audio } from 'expo-av';
@@ -8,6 +8,34 @@ import { audio_mode } from './AudioConfigs';
 
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
+
+const flask_ip = 'http://127.0.0.1:5000'
+
+function fetchSummary(text) {
+  return fetch(flask_ip + '/summarize', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      'text': text,
+    })
+  })
+}
+
+function fetchTranscription(filename) {
+  return fetch(flask_ip + '/transcribe', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      'filename': filename,
+    })
+  })
+}
 
 /********************* UI *********************/
 
@@ -25,14 +53,17 @@ export default function App() {
  *  Chat App Mockup
  */
 const ChatMockup = (props) => {
+  const scrollview_ref = useRef();
+
   return( 
     <View style = {styles.container}>
       <TopBar/>
         <FlatList 
+          ref = {scrollview_ref}
           style={styles.messagesContainer}
           data={mockup_messages}
           keyExtractor={(item, index) => index}
-          renderItem={({item}) => <Message message = {item}/>}
+          renderItem={({item}) => <Message message = {item} scrollview_ref={scrollview_ref}/>}
         />
       <BottomBar/>
     </View>
@@ -74,6 +105,7 @@ const BottomBar = (props) => {
   )
 }
 
+
 /**
  * Message Component (incoming and outgoing)
  */
@@ -97,6 +129,19 @@ const VoiceMessage = (props) => {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isFinishedPlaying, setIsFinishedPlaying] = useState(false)
   const [progressBarWidth, setProgressBarWidth] = useState(-1)
+  const [showTranscription, setShowTranscription] = useState(false)
+  const [remainingTimeText, setRemainingTimeText] = useState()
+  const [duration, setDuration] = useState(-1)
+  const CIRCLE_RADIUS  = 25
+  const [playAtPos, setPlayAtPos] = useState(-1) // if this is changed a useEffect hook skips in the voice message
+  const [setToPos, setSetToPos] = useState(-1)
+  const timestamp_ref = useRef()
+
+  function timeToString(millis) {
+    const minutes = Math.floor(millis / 60000)
+    const seconds = ((millis % 60000) / 1000).toFixed(0);
+    return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
+  }
 
   const progressAnim = useRef(new Animated.Value(0)).current;  // also used for pan?
 
@@ -105,25 +150,48 @@ const VoiceMessage = (props) => {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         progressAnim.setOffset(progressAnim._value);
+        props.scrollview_ref.current.setNativeProps({scrollEnabled: 'false'})  // disable scrolling while 'dragging the time'
       },
       onPanResponderMove: Animated.event(
         [
           null,
           {dx: progressAnim}
-        ]
+        ],
       ),
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (event, gestureState) => {
+        props.scrollview_ref.current.setNativeProps({scrollEnabled: 'true'})
         progressAnim.flattenOffset();
+        timestamp_ref.current.measure((fx, fy, w, h, px, py) => {setPlayAtPos(fx)})  // TODO: this probably isn't the way to go
       }
     })
   ).current;
 
+  const set_time_from_animation = (position) => {
+    const setToMillis = Math.floor(position/progressBarWidth * duration)
+    console.log("Postiton: " + position + " Duration: " + duration + " Setting to: " + setToMillis)
+    setPlayAtMillis(setToMillis)
+  }
+
+  useEffect(() => {
+    console.log("PLAY AT POS: " + playAtPos)
+    if (playAtPos < 0) return
+
+    const set_time = async (position, duration) => {
+      const setToMillis =  position/progressBarWidth * duration
+      console.log("PLAYING AT: " + setToMillis)
+      await sound.setPositionAsync(setToMillis)
+      start_animation(setToMillis, duration)
+      setPlayAtPos(-1)
+    }
+
+    set_time(playAtPos, duration)
+  }, [playAtPos])
 
   const start_animation = (current, duration) => {
     Animated.timing(progressAnim, {
       toValue: progressBarWidth,
       duration: duration - current,
-      easing: Easing.linear
+      easing: Easing.linear,
     }).start()
   }
 
@@ -135,7 +203,7 @@ const VoiceMessage = (props) => {
     Animated.timing(progressAnim, {
       toValue: 0,
       duration: 0,
-      easing: Easing.linear
+      easing: Easing.linear,
     }).start()
   }
   
@@ -145,15 +213,19 @@ const VoiceMessage = (props) => {
     positionMillis: 0,  // TODO: change if it should start at another place
     rate: 1, 
   }
-  const onPlaybackStatusUpdate = (status) => {
+  const onPlaybackStatusUpdate = async (status) => {
     // TODO: maybe animations? Stopping if it is after a certain point (cutting)
 
     setIsPlaying(status.isPlaying)
+    if (status.durationMillis > 0) {
+      setDuration(status.durationMillis)
+      console.log("SETTING DURATION: " + duration)
+    }
+    setRemainingTimeText(timeToString(status.positionMillis == 0 && status.durationMillis ? status.durationMillis : status.positionMillis))   // durationMillis doesn't work on web... but on ios
     if (status.didJustFinish) {
       setIsFinishedPlaying(true)
       reset_animation()
     }
-    if (status.isPlaying && isFinishedPlaying) setIsFinishedPlaying(false)
   }
 
   useEffect(() => {
@@ -177,6 +249,7 @@ const VoiceMessage = (props) => {
   async function play() {
     if (isFinishedPlaying) {
       await sound.replayAsync()
+      setIsFinishedPlaying(false)
     } else {
       await sound.playAsync()
     }
@@ -190,21 +263,94 @@ const VoiceMessage = (props) => {
   }
 
   return (
-    <View style = {styles.voiceMessage}>
-      {
-        isPlaying ?
-        <Icon name = {'pause'} size = {30} style = {styles.icon} onPress={pause}/>
-        : 
-        <Icon name = {'play-arrow'} size = {30} style = {styles.icon} onPress={play}/>
-      }
-      <View style = {{flex: 1, height: 30, borderWidth: 0.5, justifyContent: 'center'}}
-        onLayout = {({nativeEvent}) => {setProgressBarWidth(nativeEvent.layout.width)}}>
-        <Animated.View 
-          style = {{width: 25, height: 25, borderRadius: 25, backgroundColor: 'red', transform:[{translateX: progressAnim}]}}
-          {...panResponder.panHandlers}
-        >
+    <View>
+      <View style = {styles.voiceMessage}>
+        {
+          isPlaying ?
+          <Icon name = {'pause'} size = {30} style = {styles.icon} onPress={pause}/>
+          : 
+          <Icon name = {'play-arrow'} size = {30} style = {styles.icon} onPress={play}/>
+        }
+        <View style = {{flex: 1, height: 30, borderWidth: 0.5, justifyContent: 'center'}}
+          onLayout = {({nativeEvent}) => {setProgressBarWidth(nativeEvent.layout.width - CIRCLE_RADIUS)}}>
+          <Animated.View
+            ref = {timestamp_ref}
+            style = {{width: CIRCLE_RADIUS, height: CIRCLE_RADIUS, borderRadius: CIRCLE_RADIUS, backgroundColor: 'red', 
+              transform:[{translateX: progressAnim.interpolate({
+                inputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100], // TODO: maybe a dirty workaround :o
+                outputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100],
+                extrapolate: 'clamp'
+              })}]
+            }}
+            {...panResponder.panHandlers}
+          >
 
-        </Animated.View>
+          </Animated.View>
+        </View>
+      </View>
+      <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginLeft: 50, alignItems: 'center'}}>
+        <Text>{remainingTimeText}</Text>
+        <Pressable 
+          style = {styles.transcriptionPressable}
+          onPress={() => {
+            setShowTranscription(!showTranscription)
+          }}>
+            <Text>{showTranscription ? 'hide transcription' : 'show transcription'}</Text>
+            <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}}/>
+        </Pressable>
+      </View>
+      {
+        showTranscription ? 
+          <Transcription {...props}/>
+        :
+          null
+      }
+    </View>
+  )
+}
+
+const Transcription = (props) => {
+  const [transcription, setTranscription] = useState()
+  const [isLoading, setIsLoading] = useState(true)
+  const [showSummary, setShowSummary] = useState(false)
+  const [summary, setSummary] = useState()
+
+  useEffect(() => {
+    if (!transcription)
+      fetchTranscription(props.message.filename)
+      .then(async (response) => {setTranscription(await response.json())})
+      .then(() => {setIsLoading(false)})
+      .catch((error) => console.error(error))
+  }, [props.message.filename])
+
+  useEffect(() => {
+    if (transcription && showSummary && !summary) {
+      fetchSummary(transcription.text)
+      .then(async (response) => {setSummary(await response.json())})
+      .then(() => {setIsLoading(false)})
+      .catch((error) => console.error(error))
+    }
+  }, [transcription, showSummary])
+
+  if (!transcription) 
+    return (
+      <Text>Loading replies ...</Text>
+    )
+  
+  return (
+    <View>
+      <View style={{flexDirection: 'row', width: '100%'}}>
+        <View style={styles.separator}/>
+      </View>
+      <Text style={styles.regularFont}>{showSummary && summary ? summary.summary : transcription.text}</Text>
+      <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20}}>
+        <Pressable 
+          style = {styles.transcriptionPressable}
+          onPress={() => {
+            setShowSummary(!showSummary)
+          }}>
+            <Text>{showSummary ? 'show original' : 'show summary'}</Text>
+        </Pressable>
       </View>
     </View>
   )
@@ -314,7 +460,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'lightgrey',
     borderRadius: 20,
   },
+
+  // Pressables
+  transcriptionPressable : {
+    flexGrow: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    borderWidth:0.5,
+    padding: 5,
+    borderRadius: 5,
+  },
   
+
+  // Separator
+  separator : {
+    flex: 1,
+    height: 0.5,
+    margin: 20,
+    backgroundColor: 'grey',
+  },
 
   // Icons
   icon: {
