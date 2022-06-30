@@ -73,7 +73,7 @@ def summarize(text):
 
 def speech_to_text_local_audio(config, audio):
     print('starting speech to text')
-    with shelve.open("speech_to_text_db", "c") as db:
+    with shelve.open("speech_to_text_db.db", "c") as db:
         if not (audio in db):
             print("NOT IN DB")
             client = speech.SpeechClient()
@@ -115,13 +115,16 @@ def speech_to_text_api():
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
-                                      audio_channel_count=2,
+                                      audio_channel_count=1,
                                       enable_word_time_offsets=True,
                                       enable_word_confidence=True
                                       )
-
+    
+"""
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+"""
+
 
 """
 response = speech_to_text_local_audio(config_wav, "data/shortaudio.wav")
