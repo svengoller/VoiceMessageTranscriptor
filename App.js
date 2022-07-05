@@ -55,17 +55,19 @@ export default function App() {
 const ChatMockup = (props) => {
   const scrollview_ref = useRef();
 
+  const [messages, setMessages] = React.useState(mockup_messages);
+
   return( 
     <View style = {styles.container}>
       <TopBar/>
         <FlatList 
           ref = {scrollview_ref}
           style={styles.messagesContainer}
-          data={mockup_messages}
+          data={messages}
           keyExtractor={(item, index) => index}
           renderItem={({item}) => <Message message = {item} scrollview_ref={scrollview_ref}/>}
         />
-      <BottomBar/>
+      <BottomBar message_list = {messages} message_list_changer={setMessages}/>
     </View>
   )
 }
@@ -95,13 +97,60 @@ const TopBar = (props) => {
  * BottomBar displaying TextInput, etc
  */
 const BottomBar = (props) => {
+  
   return(
     <View style={styles.bottomBar}>
       <Icon name='add'  size = {30} style = {styles.icon}/>
       <TextInput style = {styles.textInput} editable={false}/>
       <Icon name='photo-camera' size = {30} style = {styles.icon}/>
-      <Icon name='mic' size = {30} style = {styles.icon}/>
+      <Microphone {...props}/>
     </View>
+  )
+}
+
+
+/**
+ * Microphone icon being able to record audio
+ */
+const Microphone = (props) => {
+  const [recording, setRecording] = React.useState();
+
+  async function startRecording() {
+    try {
+      console.log('Requesting permissions..');
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      }); 
+      console.log('Starting recording..');
+      const { recording } = await Audio.Recording.createAsync(
+         Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+      );   
+      setRecording(recording);
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  }
+
+  async function stopRecording() {
+    console.log('Stopping recording..');
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    const uri_locater = recording.getURI(); 
+    
+    console.log('Recording stopped and stored at', uri_locater)
+
+    let new_messagelist = [...props.message_list]
+    new_messagelist.push({audio:{uri:uri_locater}})
+    props.message_list_changer(new_messagelist) //call the setMessages from the ChatMockup View, so it can update the List
+  }
+
+  return (
+    <Icon name='mic' size={30} 
+    style = {recording ? styles.mic_rec:styles.icon}
+    onPress={recording ? stopRecording : startRecording}/>
   )
 }
 
@@ -512,6 +561,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'grey',
     padding: 10,
     borderRadius: 40,  // padding + size = round
+  },
+  mic_rec:{
+    padding: 10,
+    color:'green'
   },
 
   // Fonts

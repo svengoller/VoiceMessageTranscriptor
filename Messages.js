@@ -16,6 +16,6 @@ export const mockup_messages = [
         sender: 'Ted',
         // is a voice message therefore no text
         audio: require('./assets/voice_messages/ted_talk2.wav'),
-        filename: 'ted_talk2.wav'
+        filename: "ted_talk2.wav"
     },
 ]
