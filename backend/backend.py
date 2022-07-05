@@ -20,7 +20,8 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 ######### methods ###########################################################
 def summarize(text):
-    with shelve.open("ai21_generic_replies_storage", "c") as db:
+    print("trying to summarize")
+    with shelve.open("ai21_generic_replies_storage.db", "c") as db:
         with  open("summarization_template.txt", "r") as f1:
             yn_template= f1.read()
         print("template: " + str(type(yn_template)))
@@ -73,7 +74,7 @@ def summarize(text):
 
 def speech_to_text_local_audio(config, audio):
     print('starting speech to text')
-    with shelve.open("speech_to_text_db", "c") as db:
+    with shelve.open("speech_to_text_db.db", "c") as db:
         if not (audio in db):
             print("NOT IN DB")
             client = speech.SpeechClient()
@@ -112,6 +113,12 @@ def speech_to_text_api():
     return json.dumps(transcription_dict, default=str)
 
 
+@app.route('/test')
+@cross_origin()
+def test():
+    return json.dumps({"hello":"hello"}, default=str)
+
+
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
@@ -122,8 +129,7 @@ config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
     
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-
+    app.run(debug=True, port=5001)
 
 
 """
