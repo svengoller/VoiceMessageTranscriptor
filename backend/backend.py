@@ -20,10 +20,6 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 ######### methods ###########################################################
 def summarize(text):
-<<<<<<< Updated upstream
-=======
-    print("trying to summarize")
->>>>>>> Stashed changes
     with shelve.open("ai21_generic_replies_storage", "c") as db:
         with  open("summarization_template.txt", "r") as f1:
             yn_template= f1.read()
@@ -37,7 +33,7 @@ def summarize(text):
                                         "maxTokens": 49,
                                         "temperature": 0.3,
                                         "topKReturn": 0,
-                                        "topP": 0.1,
+                                        "topP": 1,
                                         "countPenalty": {
                                             "scale": 0,
                                             "applyToNumbers": False,
@@ -70,7 +66,6 @@ def summarize(text):
         else:
             response = db[text]
         data = response.json()
-        print(data)
         res_text = data['completions'][0]['data']['text']
         print(res_text)
         return res_text
@@ -117,21 +112,6 @@ def speech_to_text_api():
     return json.dumps(transcription_dict, default=str)
 
 
-<<<<<<< Updated upstream
-=======
-@app.route('/transcribe_blob',methods = ['POST'])
-@cross_origin()
-def test(): 
-    print('hello horsefucker')
-    current_date_and_time = datetime.datetime.now()
-    current_date_and_time_string = str(current_date_and_time)
-    filename = "data/"+current_date_and_time_string+".webm"
-    request.files['file'].save(filename)
-    transcription_dict = speech_to_text_local_audio(config_webm,filename)
-    return json.dumps(transcription_dict, default=str)
-
-
->>>>>>> Stashed changes
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
@@ -143,10 +123,6 @@ config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 
 
 """
