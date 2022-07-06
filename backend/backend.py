@@ -2,7 +2,10 @@ import json
 import requests
 import shelve
 import requests
+import filecmp
+import glob
 import os
+import datetime
 import shelve
 from google.cloud import speech
 from flask import Flask, request
@@ -113,13 +116,26 @@ def speech_to_text_api():
     return json.dumps(transcription_dict, default=str)
 
 
-@app.route('/test')
+@app.route('/transcribe_blob',methods = ['POST'])
 @cross_origin()
-def test():
-    return json.dumps({"hello":"hello"}, default=str)
+def test(): 
+    current_date_and_time = datetime.datetime.now()
+    current_date_and_time_string = str(current_date_and_time)
+    filename = "data/"+current_date_and_time_string+".webm"
+    request.files['file'].save(filename)
+    transcription_dict = speech_to_text_local_audio(config_webm,filename)
+    return json.dumps(transcription_dict, default=str)
 
 
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
+                                      enable_automatic_punctuation=True,
+                                      language_code='en-US',
+                                      audio_channel_count=1,
+                                      enable_word_time_offsets=True,
+                                      enable_word_confidence=True
+                                      )
+
+config_webm = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
                                       audio_channel_count=1,

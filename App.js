@@ -24,16 +24,33 @@ function fetchSummary(text) {
   })
 }
 
-function fetchTranscription(filename) {
-  return fetch(flask_ip + '/transcribe', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      'filename': filename,
+function fetchTranscription(filename,uri) {
+  if(filename != undefined){
+    return fetch(flask_ip + '/transcribe', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        'filename': filename,
+      })
     })
+  }else{
+    return fetchTranscriptionFromBlob(uri['uri'])
+  }
+  
+}
+
+async function fetchTranscriptionFromBlob(uri_locater){
+  console.log("filename : " + filename)
+  let blob = await fetch(uri_locater).then(r => r.blob());
+  var data = new FormData()
+  data.append('file', blob)
+  console.log(data['name'])
+  return fetch(flask_ip + '/transcribe_blob', {
+    method: 'POST',
+    body:data
   })
 }
 
@@ -141,10 +158,20 @@ const Microphone = (props) => {
     const uri_locater = recording.getURI(); 
     
     console.log('Recording stopped and stored at', uri_locater)
-
+    const filename = Date.now() + ".webm";
     let new_messagelist = [...props.message_list]
-    new_messagelist.push({audio:{uri:uri_locater}})
+    new_messagelist.push({audio:{uri:uri_locater},uid:filename})
     props.message_list_changer(new_messagelist) //call the setMessages from the ChatMockup View, so it can update the List
+
+    /*
+    let blob = await fetch(uri_locater).then(r => r.blob());
+    console.log(blob)
+    console.log("starting fetching")
+    fetchTest(blob)
+      .then(async (response) => {console.log(response.json())})
+      .catch((error) => console.error(error))
+      */
+      
   }
 
   return (
@@ -363,7 +390,7 @@ const Transcription = (props) => {
 
   useEffect(() => {
     if (!transcription)
-      fetchTranscription(props.message.filename)
+      fetchTranscription(props.message.filename,props.message.audio,props.message.uid)
       .then(async (response) => {setTranscription(await response.json())})
       .then(() => {setIsLoading(false)})
       .catch((error) => console.error(error))
