@@ -40,11 +40,11 @@ function fetchTranscription(filename) {
 /********************* UI *********************/
 
 export default function App() {
+  const [messages, setMessages] = useState(mockup_messages)
+
   return (
     <SafeAreaView style = {{flex: 1, backgroundColor: 'lightgrey'}}>
-      <ChatMockup>
-        <Text>Hey there!</Text>
-      </ChatMockup>
+      <ChatMockup messages = {messages} setMessages = {setMessages}/>
     </SafeAreaView>
   );
 }
@@ -61,9 +61,9 @@ const ChatMockup = (props) => {
         <FlatList 
           ref = {scrollview_ref}
           style={styles.messagesContainer}
-          data={mockup_messages}
+          data={props.messages}
           keyExtractor={(item, index) => index}
-          renderItem={({item}) => <Message message = {item} scrollview_ref={scrollview_ref}/>}
+          renderItem={({item}) => <Message message = {item} scrollview_ref={scrollview_ref} {...props}/>}
         />
       <BottomBar/>
     </View>
@@ -131,18 +131,26 @@ const VoiceMessage = (props) => {
   const [progressBarWidth, setProgressBarWidth] = useState(-1)
   const [showTranscription, setShowTranscription] = useState(false)
   const [remainingTimeText, setRemainingTimeText] = useState()
-  const [duration, setDuration] = useState(-1)
   const CIRCLE_RADIUS  = 25
   const [playAtPos, setPlayAtPos] = useState(-1) // if this is changed a useEffect hook skips in the voice message
   const [setToPos, setSetToPos] = useState(-1)
   const timestamp_ref = useRef()
   const [playAtMillis, setPlayAtMillis] = useState(-1)
+  const messageIsCut = message.start_time && message.stop_time
+  const [duration, setDuration] = useState(messageIsCut ? message.stop_time - message.start_time : -1)
+  const [shouldStop, setShouldStop] = useState(false)
+
 
   function timeToString(millis) {
     const minutes = Math.floor(millis / 60000)
     const seconds = ((millis % 60000) / 1000).toFixed(0);
     return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
   }
+
+  useEffect(() => {
+    setDuration(messageIsCut ? message.stop_time - message.start_time : -1)
+  }, [messageIsCut])
+  
 
   const progressAnim = useRef(new Animated.Value(0)).current;  // also used for pan?
 
@@ -205,16 +213,21 @@ const VoiceMessage = (props) => {
   }
   
   const source = message.audio
+  console.log(message.start_time)
   const initialStatus = {
-    progressUpdateIntervalMillis: 1000,
-    positionMillis: 0,  // TODO: change if it should start at another place
+    progressUpdateIntervalMillis: 500,  // TODO: maybe even less since this is responsible for stopping audio
+    positionMillis: message.start_time ? message.start_time : 0,  // TODO: change if it should start at another place
     rate: 1, 
   }
   const onPlaybackStatusUpdate = async (status) => {
     // TODO: maybe animations? Stopping if it is after a certain point (cutting)
+    if (status.positionMillis >= message.stop_time) {
+      setShouldStop(true)
+      setIsFinishedPlaying(true)
+    }
 
     setIsPlaying(status.isPlaying)
-    if (status.durationMillis > 0) {
+    if (status.durationMillis > 0 && !messageIsCut) {
       setDuration(status.durationMillis)
       //console.log("SETTING DURATION: " + duration)
     }
@@ -243,15 +256,29 @@ const VoiceMessage = (props) => {
     load_sound()
   }, [])
 
+
+  useEffect(() => {
+    async function stop() {
+      await sound.setStatusAsync({shouldPlay: false, positionMillis: message.start_time ? message.start_time : 0})
+    }
+
+    if (shouldStop) {
+      stop()
+      setShouldStop(false)
+    }
+  }, [shouldStop])
+
+
   async function play() {
     if (isFinishedPlaying) {
       await sound.replayAsync()
+      if (message.start_time) await setPositionAsync(message.start_time)
       setIsFinishedPlaying(false)
     } else {
       await sound.playAsync()
     }
     const {positionMillis, durationMillis } = await sound.getStatusAsync()
-    start_animation(positionMillis, durationMillis)
+    start_animation(positionMillis, duration > -1 ? duration : durationMillis)
   }
 
   async function pause() {
@@ -358,6 +385,9 @@ const TranscriptionWordwise = (props) => {
   const selectingWords = selectionEndpoints.first > -1 && selectionEndpoints.last > -1
 
   const words = props.transcription.words
+  const [messages, setMessages] = [props.messages, props.setMessages]
+  console.log(props.message)
+  const messageIsCut = props.message.start_time && props.message.stop_time
 
   function toggleWordSelection(index) {
     let _selectionEndpoints = {...selectionEndpoints}
@@ -400,28 +430,42 @@ const TranscriptionWordwise = (props) => {
             const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
             const isSelectable = selectingWords && (index === selectionEndpoints.first-1 || index ===selectionEndpoints.last+1)
 
-            return ( 
-              <Pressable 
-                key = {index}
-                onPress = {() => {
-                  if (isSelectable || isSelectable)  // TODO: vllt einschränken (z.B. is unSelectable)
+            const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
+
+            console.log(messageIsCut)
+
+            if (isInCut) 
+              return ( 
+                <Pressable 
+                  key = {index}
+                  onPress = {() => {
+                    if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+                      toggleWordSelection(index)
+                    else if (!selectingWords)
+                      props.setPlayAtMillis(start_millis)
+                  }}
+                  onLongPress = {() => {
                     toggleWordSelection(index)
-                  else if (!selectingWords)
-                    props.setPlayAtMillis(start_millis)
-                }}
-                onLongPress = {() => {
-                  toggleWordSelection(index)
-                }}
-                style = {{backgroundColor: isSelected ? 'lightblue' : 'transparent'}}>
-                  <Text>{word.word + " "}</Text>
-              </Pressable>
-            )
+                  }}
+                  style = {{backgroundColor: isSelected ? 'lightblue' : 'transparent'}}>
+                    <Text>{word.word + " "}</Text>
+                </Pressable>
+              )
           })
         }
       </View>
       {
       selectingWords ? 
-        <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}/>
+        <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}
+          onPress = {() => {
+            let _messages = [...messages]
+            let shortended_message = {...props.message}
+            shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
+            shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
+            shortended_message.sender = undefined // TODO: mark as reply
+            _messages.push(shortended_message)
+            setMessages(_messages)
+          }}/>
       :
         null
       }
