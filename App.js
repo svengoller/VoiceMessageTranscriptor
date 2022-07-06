@@ -354,9 +354,36 @@ const Transcription = (props) => {
 }
 
 const TranscriptionWordwise = (props) => {
+  const [selectionEndpoints, setSelectionEndpoints] = useState({first: -1, last: -1})
+  const selectingWords = selectionEndpoints.first > -1 && selectionEndpoints.last > -1
+
   const words = props.transcription.words
 
-  console.log(props.transcription.text)
+  function toggleWordSelection(index) {
+    let _selectionEndpoints = {...selectionEndpoints}
+    if (selectingWords) {
+      if (index === selectionEndpoints.first - 1) {
+        _selectionEndpoints.first = index
+      } else if (index === selectionEndpoints.last + 1) {
+        _selectionEndpoints.last = index
+      } else {
+        if (index === selectionEndpoints.first) {
+          _selectionEndpoints.first = index + 1
+        } else if (index === selectionEndpoints.last) {
+          _selectionEndpoints.last = index - 1
+        }
+        if (_selectionEndpoints.first > _selectionEndpoints.last) {
+          _selectionEndpoints.first = -1
+          _selectionEndpoints.last = -1
+        }
+      }
+    } else {
+      _selectionEndpoints.first = index
+      _selectionEndpoints.last = index
+    }
+    console.log(_selectionEndpoints)
+    setSelectionEndpoints(_selectionEndpoints)
+  }
 
   function toMillis(time_str) {
     const array = time_str.split(":")
@@ -365,14 +392,38 @@ const TranscriptionWordwise = (props) => {
   }
 
   return(
-    <View style = {{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
+    <View>
+      <View style = {{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
+        {
+          words.map((word, index) => {
+            const start_millis = toMillis(word.start_time)
+            const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
+            const isSelectable = selectingWords && (index === selectionEndpoints.first-1 || index ===selectionEndpoints.last+1)
+
+            return ( 
+              <Pressable 
+                key = {index}
+                onPress = {() => {
+                  if (isSelectable || isSelectable)  // TODO: vllt einschränken (z.B. is unSelectable)
+                    toggleWordSelection(index)
+                  else if (!selectingWords)
+                    props.setPlayAtMillis(start_millis)
+                }}
+                onLongPress = {() => {
+                  toggleWordSelection(index)
+                }}
+                style = {{backgroundColor: isSelected ? 'lightblue' : 'transparent'}}>
+                  <Text>{word.word + " "}</Text>
+              </Pressable>
+            )
+          })
+        }
+      </View>
       {
-        words.map((word, index) => {
-          const start_millis = toMillis(word.start_time)
-          return <Pressable onPress = {() => {
-            props.setPlayAtMillis(start_millis)
-          }}><Text>{word.word + " "}</Text></Pressable>
-        })
+      selectingWords ? 
+        <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}/>
+      :
+        null
       }
     </View>
   )
