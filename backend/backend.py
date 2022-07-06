@@ -27,9 +27,8 @@ def summarize(text):
     with shelve.open("ai21_generic_replies_storage.db", "c") as db:
         with  open("summarization_template.txt", "r") as f1:
             yn_template= f1.read()
-        print("template: " + str(type(yn_template)))
         if not (text in db):
-            print("DATABASE NOT WORKING")
+            print("Not in DB")
             response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
                                     headers={"Authorization": "Bearer "+api_key},
                                     json={
@@ -38,7 +37,7 @@ def summarize(text):
                                         "maxTokens": 49,
                                         "temperature": 0.3,
                                         "topKReturn": 0,
-                                        "topP": 0.1,
+                                        "topP": 1,
                                         "countPenalty": {
                                             "scale": 0,
                                             "applyToNumbers": False,
@@ -72,6 +71,7 @@ def summarize(text):
             response = db[text]
         data = response.json()
         res_text = data['completions'][0]['data']['text']
+        print("Summary: " + res_text)
         return res_text
 
 
