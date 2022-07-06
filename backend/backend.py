@@ -91,7 +91,7 @@ def speech_to_text_local_audio(config, audio):
             transcription = alternative.transcript
             list = []
             for i, word in enumerate(alternative.words):
-                list.append({"word": word.word, "confidence": word.confidence, "start_time": word.start_time})  # start isn't json serializable
+                list.append({"word": word.word, "confidence": word.confidence, "start_time": word.start_time, "stop_time": word.end_time})  # start isn't json serializable
         return {'text': transcription, 'words': list}
 
 ######### api #################################################################
