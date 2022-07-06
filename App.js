@@ -43,7 +43,6 @@ function fetchTranscription(filename,uri) {
 }
 
 async function fetchTranscriptionFromBlob(uri_locater){
-  console.log("filename : " + filename)
   let blob = await fetch(uri_locater).then(r => r.blob());
   var data = new FormData()
   data.append('file', blob)
