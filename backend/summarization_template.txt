@@ -22,4 +22,4 @@ summary: I haven't had much time yesterday, but today i do.
 text: The shootings took place at locations associated with Oslo Pride, the local LGBT Pride event hosted by the Oslo branch of Norwegia Organization for sexual and gender diversity the night before the planned pride parade in Oslo. The first shooting occurred at London, pub a popular gay bar and Nightclub cording to the perpetrator shouted, Allahu Akbar.
 summary: The shootings took also place at London Pub in Oslo and They were associated with Oslo Pride, the local LGBT Pride event.
 ---
-text:
+text: 
