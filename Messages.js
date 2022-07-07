@@ -20,11 +20,11 @@ export const mockup_messages = [
         start_time: 0,
         stop_time: 13000,
     },
-    {
+    // {
         // is a voice message therefore no text
-        audio: require('./assets/voice_messages/maurice_reply.wav'),
-        filename: 'maurice_reply.wav',
-        start_time: 5000,
-        stop_time: 8000,
-    }
+        // audio: require('./assets/voice_messages/maurice_reply.wav'),
+        // filename: 'maurice_reply.wav',
+        // start_time: 5000,
+        // stop_time: 8000,
+    // }
 ]
