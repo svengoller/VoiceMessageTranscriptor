@@ -121,8 +121,9 @@ def speech_to_text_api():
 def test(): 
     current_date_and_time = datetime.datetime.now()
     current_date_and_time_string = str(current_date_and_time)
-    filename = "data/"+current_date_and_time_string+".webm"
-    request.files['file'].save(filename)
+    file = request.files['file']
+    filename = "data/"+ file.filename
+    file.save(filename)
     transcription_dict = speech_to_text_local_audio(config_webm,filename)
     return json.dumps(transcription_dict, default=str)
 
