@@ -9,7 +9,7 @@ import { audio_mode } from './AudioConfigs';
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://192.168.2.104:5000'  // SVEN: My local ip adress of flask (for using it on the phone)
+const flask_ip = 'http://172.31.168.246:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
@@ -24,16 +24,33 @@ function fetchSummary(text) {
   })
 }
 
-function fetchTranscription(filename) {
-  return fetch(flask_ip + '/transcribe', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      'filename': filename,
+function fetchTranscription(filename,uri,uid) {
+  if(filename != undefined){
+    return fetch(flask_ip + '/transcribe', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        'filename': filename,
+      })
     })
+  }else{
+    console.log("uri:"+uri['uri'])
+    return fetchTranscriptionFromBlob(uri['uri'],uid)
+  }
+  
+}
+
+async function fetchTranscriptionFromBlob(uri_locater,filename){
+  let blob = await fetch(uri_locater).then(r => r.blob());
+  var data = new FormData()
+  console.log(blob)
+  data.append('file', blob,filename)
+  return fetch(flask_ip + '/transcribe_blob', {
+    method: 'POST',
+    body:data
   })
 }
 
@@ -65,7 +82,7 @@ const ChatMockup = (props) => {
           keyExtractor={(item, index) => index}
           renderItem={({item}) => <Message message = {item} scrollview_ref={scrollview_ref} {...props}/>}
         />
-      <BottomBar/>
+      <BottomBar {...props}/>
     </View>
   )
 }
@@ -95,13 +112,72 @@ const TopBar = (props) => {
  * BottomBar displaying TextInput, etc
  */
 const BottomBar = (props) => {
+  
   return(
     <View style={styles.bottomBar}>
       <Icon name='add'  size = {30} style = {styles.icon}/>
       <TextInput style = {styles.textInput} editable={false}/>
       <Icon name='photo-camera' size = {30} style = {styles.icon}/>
-      <Icon name='mic' size = {30} style = {styles.icon}/>
+      <Microphone {...props}/>
     </View>
+  )
+}
+
+
+/**
+ * Microphone icon being able to record audio
+ */
+const Microphone = (props) => {
+  const [recording, setRecording] = React.useState();
+
+  async function startRecording() {
+    try {
+      console.log('Requesting permissions..');
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      }); 
+      console.log('Starting recording..');
+      const { recording } = await Audio.Recording.createAsync(
+         Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+      );   
+      setRecording(recording);
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+    }
+  }
+
+  async function stopRecording() {
+    console.log('Stopping recording..');
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    const uri_locater = recording.getURI(); 
+    
+    const filename = Date.now() + ".webm";
+    let new_messagelist = [...props.messages]
+    new_messagelist.push({
+      audio:{uri:uri_locater},
+      uid:filename,
+    })
+    props.setMessages(new_messagelist) //call the setMessages from the ChatMockup View, so it can update the List
+
+    /*
+    let blob = await fetch(uri_locater).then(r => r.blob());
+    console.log(blob)
+    console.log("starting fetching")
+    fetchTest(blob)
+      .then(async (response) => {console.log(response.json())})
+      .catch((error) => console.error(error))
+      */
+      
+  }
+
+  return (
+    <Icon name='mic' size={30} 
+    style = {recording ? styles.mic_rec:styles.icon}
+    onPress={recording ? stopRecording : startRecording}/>
   )
 }
 
@@ -348,7 +424,7 @@ const Transcription = (props) => {
 
   useEffect(() => {
     if (!transcription)
-      fetchTranscription(props.message.filename)
+      fetchTranscription(props.message.filename,props.message.audio,props.message.uid)
       .then(async (response) => {setTranscription(await response.json())})
       .then(() => {setIsLoading(false)})
       .catch((error) => console.error(error))
@@ -375,7 +451,7 @@ const Transcription = (props) => {
       </View>
       {
       showSummary && summary ?
-        <Text style={styles.regularFont}>summary.summary</Text>
+        <Text style={styles.regularFont}>{summary.summary}</Text>
       :
         <TranscriptionWordwise {...props} transcription = {transcription}/>
       }
@@ -619,6 +695,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'grey',
     padding: 10,
     borderRadius: 40,  // padding + size = round
+  },
+  mic_rec:{
+    padding: 10,
+    color:'green'
   },
 
   // Fonts

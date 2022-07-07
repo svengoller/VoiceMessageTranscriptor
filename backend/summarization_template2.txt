@@ -1,0 +1,16 @@
+text: If we really change how a voice message component looks and maybe even have to work with animations and so on it’s probably just as much work as programming a chat app and requires more ideas
+summary: programming a voice message component is enough
+---
+text: Tuesday I work the whole day in munich and Wednesday i will be still in munich bcz i have some paper work that i have to deal with and idk when i come back to Bayreuth. Sorry guys if u meet without me and then send me the summary or if i am available when u will meet i can join with a call
+summary: I'm busy on Tuesday and Wednesday. 
+---
+text: Hey everyone, on January 10th it's time to pay again! So, everyone, send me 10 euros via paypal! The next payday will be in 6 months! Thank you!
+summary: Please send me 10 euros via paypal.
+---
+text: Hey there? I couldn't attend the maths lecture today. Did anyone take notes and could maybe send them to me? Thanks!
+summary: Can anyone send me notes from the math lecture today?
+---
+text: I can understand that you might be worried that we’re not doing enough, but  I don’t think there is anything to be gained from implementing a whole chat app. I‘d start with implementing the voice message component and if we feel like that was too easy we can always add more. But even then I think our resources are better spent on refining the voice message component than on creating another chat app thats just like all the others that are already existing
+summary: I think we should focus on refining the voice message component
+---
+text: 

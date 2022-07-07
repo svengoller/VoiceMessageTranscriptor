@@ -2,7 +2,10 @@ import json
 import requests
 import shelve
 import requests
+import filecmp
+import glob
 import os
+import datetime
 import shelve
 from google.cloud import speech
 from flask import Flask, request
@@ -20,18 +23,19 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 
 ######### methods ###########################################################
 def summarize(text):
-    with shelve.open("ai21_generic_replies_storage", "c") as db:
-        with  open("summarization_template.txt", "r") as f1:
+    print("trying to summarize")
+    with shelve.open("ai21_generic_replies_storage.db", "c") as db:
+        with  open("summarization_template3.txt", "r") as f1:
             yn_template= f1.read()
         if not (text in db):
-            print("not in database")
+            print("NOT IN DB")
             response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
                                     headers={"Authorization": "Bearer "+api_key},
                                     json={
                                         "prompt": yn_template + text + "\nsummary:",
                                         "numResults": 1,
                                         "maxTokens": 49,
-                                        "temperature": 0.3,
+                                        "temperature": 0.2,
                                         "topKReturn": 0,
                                         "topP": 1,
                                         "countPenalty": {
@@ -67,13 +71,13 @@ def summarize(text):
             response = db[text]
         data = response.json()
         res_text = data['completions'][0]['data']['text']
-        print(res_text)
+        print("Summary: " + res_text)
         return res_text
 
 
 def speech_to_text_local_audio(config, audio):
     print('starting speech to text')
-    with shelve.open("speech_to_text_db", "c") as db:
+    with shelve.open("speech_to_text_db.db", "c") as db:
         if not (audio in db):
             print("NOT IN DB")
             client = speech.SpeechClient()
@@ -107,12 +111,33 @@ def summarize_api():
 @app.route('/transcribe', methods = ['POST'])
 @cross_origin()
 def speech_to_text_api():
+    print('transcribing...')
     audio = "data/" + request.get_json(force = True)['filename']
     transcription_dict = speech_to_text_local_audio(config_wav, audio)
     return json.dumps(transcription_dict, default=str)
 
 
+@app.route('/transcribe_blob',methods = ['POST'])
+@cross_origin()
+def test(): 
+    current_date_and_time = datetime.datetime.now()
+    current_date_and_time_string = str(current_date_and_time)
+    file = request.files['file']
+    filename = "data/"+ file.filename
+    file.save(filename)
+    transcription_dict = speech_to_text_local_audio(config_webm,filename)
+    return json.dumps(transcription_dict, default=str)
+
+
 config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
+                                      enable_automatic_punctuation=True,
+                                      language_code='en-US',
+                                      audio_channel_count=1,
+                                      enable_word_time_offsets=True,
+                                      enable_word_confidence=True
+                                      )
+
+config_webm = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
                                       language_code='en-US',
                                       audio_channel_count=1,

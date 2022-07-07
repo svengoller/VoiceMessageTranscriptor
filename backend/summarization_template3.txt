@@ -1,0 +1,16 @@
+text: If we really change how a voice message component looks and maybe even have to work with animations and so on it’s probably just as much work as programming a chat app and requires more ideas
+summary: programming a voice message component is enough
+---
+text: Tuesday I work the whole day in munich and Wednesday i will be still in munich bcz i have some paper work that i have to deal with and idk when i come back to Bayreuth. Sorry guys if u meet without me and then send me the summary or if i am available when u will meet i can join with a call
+summary: I'm busy on Tuesday and Wednesday. Sorry guys, if you meet without me!
+---
+text: Hey everyone, on January 10th it's time to pay again! So, everyone, send me 10 euros via paypal! The next payday will be in 6 months! Thank you!
+summary: Please send me 10 euros via paypal.
+---
+text: I can understand that you might be worried that we’re not doing enough, but  I don’t think there is anything to be gained from implementing a whole chat app. I‘d start with implementing the voice message component and if we feel like that was too easy we can always add more. But even then I think our resources are better spent on refining the voice message component than on creating another chat app thats just like all the others that are already existing
+summary: I think we should focus on refining the voice message component. If that is still not enough, we can add more stuff!
+---
+text: Good morning, how are you today? I have to say, I'm pretty tired, because i slept very bad. My back hurts and my head, too. I always have that, when the weather changes.  I should go running today, maybe it makes me feel better afterwards. University will be very hard today, I have 5 lectures and don't know, how to concentrate for this long time! Wish me luck for my day.
+summary: Good morning, how are you? I slept bad, so I'm tired and my back and head hurts. Also i have 5 lectures today, wish me luck!
+---
+text: 
