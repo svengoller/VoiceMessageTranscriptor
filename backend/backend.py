@@ -25,7 +25,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 def summarize(text):
     print("trying to summarize")
     with shelve.open("ai21_generic_replies_storage.db", "c") as db:
-        with  open("summarization_template2.txt", "r") as f1:
+        with  open("summarization_template3.txt", "r") as f1:
             yn_template= f1.read()
         print("template: " + str(type(yn_template)))
         if not (text in db):
