@@ -25,20 +25,20 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 def summarize(text):
     print("trying to summarize")
     with shelve.open("ai21_generic_replies_storage.db", "c") as db:
-        with  open("summarization_template.txt", "r") as f1:
+        with  open("summarization_template2.txt", "r") as f1:
             yn_template= f1.read()
         print("template: " + str(type(yn_template)))
         if not (text in db):
-            print("DATABASE NOT WORKING")
+            print("NOT IN DB")
             response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
                                     headers={"Authorization": "Bearer "+api_key},
                                     json={
                                         "prompt": yn_template + text + "\nsummary:",
                                         "numResults": 1,
                                         "maxTokens": 49,
-                                        "temperature": 0.3,
+                                        "temperature": 0.2,
                                         "topKReturn": 0,
-                                        "topP": 0.1,
+                                        "topP": 1,
                                         "countPenalty": {
                                             "scale": 0,
                                             "applyToNumbers": False,
