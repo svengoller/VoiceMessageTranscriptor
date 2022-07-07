@@ -15,8 +15,10 @@ export const mockup_messages = [
     {
         sender: 'Maurice',
         // is a voice message therefore no text
-        audio: require('./assets/voice_messages/maurice_reply.wav'),
-        filename: 'maurice_reply.wav'
+        audio: require('./assets/voice_messages/ted_talk2.wav'),
+        filename: "ted_talk2.wav",
+        start_time: 0,
+        stop_time: 13000,
     },
     {
         // is a voice message therefore no text
