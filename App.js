@@ -9,7 +9,7 @@ import { audio_mode } from './AudioConfigs';
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://127.0.0.1:5000'
+const flask_ip = 'http://192.168.2.104:5000'  // SVEN: My local ip adress of flask (for using it on the phone)
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
@@ -127,16 +127,15 @@ const VoiceMessage = (props) => {
   const message = props.message
   const [sound, setSound] = useState()
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isFinishedPlaying, setIsFinishedPlaying] = useState(false)
+  const [isFinishedPlaying, setIsFinishedPlaying] = useState(true)  // also true before it is played
   const [progressBarWidth, setProgressBarWidth] = useState(-1)
   const [showTranscription, setShowTranscription] = useState(false)
   const [remainingTimeText, setRemainingTimeText] = useState()
   const CIRCLE_RADIUS  = 25
   const [playAtPos, setPlayAtPos] = useState(-1) // if this is changed a useEffect hook skips in the voice message
-  const [setToPos, setSetToPos] = useState(-1)
   const timestamp_ref = useRef()
   const [playAtMillis, setPlayAtMillis] = useState(-1)
-  const messageIsCut = message.start_time && message.stop_time
+  const messageIsCut = message.start_time || message.stop_time
   const [duration, setDuration] = useState(messageIsCut ? message.stop_time - message.start_time : -1)
   const [shouldStop, setShouldStop] = useState(false)
 
@@ -175,26 +174,27 @@ const VoiceMessage = (props) => {
     })
   ).current;
 
-  const set_time = async (setToMillis, duration) => {
+  const set_time = async (setToMillis, end_time) => {
     await sound.setPositionAsync(setToMillis)
-    if (isPlaying) start_animation(setToMillis, duration)
+    if (isPlaying) start_animation(setToMillis, end_time)
   }
 
   useEffect(() => {
     console.log("PLAY AT TIME: " + playAtPos)
     if (playAtPos < 0 && playAtMillis < 0) return
-    
-    const setToMillis =  playAtMillis < 0 ? playAtPos/progressBarWidth * duration : playAtMillis
-    set_time(setToMillis, duration)
-    animate_to_time(setToMillis, duration)
+
+
+    let setToMillis =  playAtMillis < 0 ? playAtPos/progressBarWidth * duration + message.start_time : playAtMillis
+    set_time(setToMillis, message.stop_time ? message.stop_time : duration)
+    if (playAtMillis > 0) animate_to_time(setToMillis, duration)  // only do this when setting time with word-click
     setPlayAtPos(-1)
     setPlayAtMillis(-1)
   }, [playAtPos, playAtMillis])
 
-  const start_animation = (current, duration) => {
+  const start_animation = (current_time, end_time) => {
     Animated.timing(progressAnim, {
       toValue: progressBarWidth,
-      duration: duration - current,
+      duration: end_time - current_time,
       easing: Easing.linear,
     }).start()
   }
@@ -204,7 +204,8 @@ const VoiceMessage = (props) => {
   }
 
   const animate_to_time = (current_time, duration) => {
-    const position = current_time / duration * progressBarWidth
+    const time = message.start_time ? current_time - message.start_time : current_time
+    const position = time / duration * progressBarWidth
     progressAnim.setValue(position)
   }
 
@@ -231,16 +232,15 @@ const VoiceMessage = (props) => {
       setDuration(status.durationMillis)
       //console.log("SETTING DURATION: " + duration)
     }
-    setRemainingTimeText(timeToString(status.positionMillis == 0 && status.durationMillis ? status.durationMillis : status.positionMillis))   // durationMillis doesn't work on web... but on ios
+    const isAtBeginning = (status.positionMillis == 0 || status.positionMillis == message.start_time)
+    const current_time_str = timeToString(message.start_time ? status.positionMillis - message.start_time : status.positionMillis)
+    const duration_str = timeToString(messageIsCut ? duration : status.durationMillis)
+    setRemainingTimeText(isAtBeginning ? duration_str : current_time_str)   // durationMillis doesn't work on web... but on ios
     if (status.didJustFinish) {
       setIsFinishedPlaying(true)
       reset_animation()
     }
   }
-
-  useEffect(() => {
-    //console.log(isFinishedPlaying)
-  }, [isFinishedPlaying])
   
   useEffect(() => {
     const load_sound = async () => {
@@ -253,8 +253,12 @@ const VoiceMessage = (props) => {
       setSound(sound)
     }
 
-    load_sound()
-  }, [])
+    if(isFinishedPlaying) {
+      load_sound()
+      reset_animation()
+      setIsFinishedPlaying(false)
+    }
+  }, [isFinishedPlaying])
 
 
   useEffect(() => {
@@ -270,15 +274,17 @@ const VoiceMessage = (props) => {
 
 
   async function play() {
-    if (isFinishedPlaying) {
+    if (isFinishedPlaying && false) {
       await sound.replayAsync()
       if (message.start_time) await setPositionAsync(message.start_time)
       setIsFinishedPlaying(false)
     } else {
       await sound.playAsync()
+      setIsFinishedPlaying(false)
     }
     const {positionMillis, durationMillis } = await sound.getStatusAsync()
-    start_animation(positionMillis, duration > -1 ? duration : durationMillis)
+    console.log("Status: " + duration > -1 ? duration : durationMillis)
+    start_animation(positionMillis, message.stop_time ?  message.stop_time : durationMillis)
   }
 
   async function pause() {
@@ -366,7 +372,12 @@ const Transcription = (props) => {
       <View style={{flexDirection: 'row', width: '100%'}}>
         <View style={styles.separator}/>
       </View>
-      <Text style={styles.regularFont}>{showSummary && summary ? summary.summary : <TranscriptionWordwise {...props} transcription = {transcription}/>}</Text>
+      {
+      showSummary && summary ?
+        <Text style={styles.regularFont}>summary.summary</Text>
+      :
+        <TranscriptionWordwise {...props} transcription = {transcription}/>
+      }
       <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20}}>
         <Pressable 
           style = {styles.transcriptionPressable}
@@ -422,54 +433,54 @@ const TranscriptionWordwise = (props) => {
   }
 
   return(
-    <View>
-      <View style = {{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
-        {
-          words.map((word, index) => {
-            const start_millis = toMillis(word.start_time)
-            const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
-            const isSelectable = selectingWords && (index === selectionEndpoints.first-1 || index ===selectionEndpoints.last+1)
+      <View style = {{flex: 1, flexDirection: 'column'}}>
+        <View style = {{flex: 1,flexDirection: 'row', flexWrap: 'wrap'}}>
+          {
+            words.map((word, index) => {
+              const start_millis = toMillis(word.start_time)
+              const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
+              const isSelectable = selectingWords && (index === selectionEndpoints.first-1 || index ===selectionEndpoints.last+1)
 
-            const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
+              const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
 
-            console.log(messageIsCut)
+              console.log(messageIsCut)
 
-            if (isInCut) 
-              return ( 
-                <Pressable 
-                  key = {index}
-                  onPress = {() => {
-                    if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+              if (isInCut) 
+                return ( 
+                  <Pressable 
+                    key = {index}
+                    onPress = {() => {
+                      if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+                        toggleWordSelection(index)
+                      else if (!selectingWords)
+                        props.setPlayAtMillis(start_millis)
+                    }}
+                    onLongPress = {() => {
                       toggleWordSelection(index)
-                    else if (!selectingWords)
-                      props.setPlayAtMillis(start_millis)
-                  }}
-                  onLongPress = {() => {
-                    toggleWordSelection(index)
-                  }}
-                  style = {{backgroundColor: isSelected ? 'lightblue' : 'transparent'}}>
-                    <Text>{word.word + " "}</Text>
-                </Pressable>
-              )
-          })
+                    }}
+                    style = {{backgroundColor: isSelected ? 'lightblue' : 'transparent'}}>
+                      <Text style={styles.regularFont}>{word.word + " "}</Text>
+                  </Pressable>
+                )
+            })
+          }
+        </View>
+        {
+        selectingWords ? 
+          <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}
+            onPress = {() => {
+              let _messages = [...messages]
+              let shortended_message = {...props.message}
+              shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
+              shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
+              shortended_message.sender = undefined // TODO: mark as reply
+              _messages.push(shortended_message)
+              setMessages(_messages)
+            }}/>
+        :
+          null
         }
       </View>
-      {
-      selectingWords ? 
-        <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}
-          onPress = {() => {
-            let _messages = [...messages]
-            let shortended_message = {...props.message}
-            shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
-            shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
-            shortended_message.sender = undefined // TODO: mark as reply
-            _messages.push(shortended_message)
-            setMessages(_messages)
-          }}/>
-      :
-        null
-      }
-    </View>
   )
   
 }
