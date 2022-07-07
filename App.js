@@ -184,7 +184,8 @@ const VoiceMessage = (props) => {
     if (playAtPos < 0 && playAtMillis < 0) return
 
 
-    let setToMillis =  playAtMillis < 0 ? playAtPos/progressBarWidth * duration + message.start_time : playAtMillis
+    let setToMillis =  playAtMillis < 0 && playAtPos >= 0 ? playAtPos/progressBarWidth * duration: playAtMillis
+    if (message.start_time >= 0) setToMillis = setToMillis + message.start_time
     set_time(setToMillis, message.stop_time ? message.stop_time : duration)
     if (playAtMillis > 0) animate_to_time(setToMillis, duration)  // only do this when setting time with word-click
     setPlayAtPos(-1)
