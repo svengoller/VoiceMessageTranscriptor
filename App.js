@@ -128,9 +128,11 @@ const BottomBar = (props) => {
  * Microphone icon being able to record audio
  */
 const Microphone = (props) => {
-  const [recording, setRecording] = React.useState();
+  const [recording, setRecording] = useState();
+  const [timer, setTimer] = useState();
 
   async function startRecording() {
+
     try {
       console.log('Requesting permissions..');
       await Audio.requestPermissionsAsync();
@@ -142,6 +144,8 @@ const Microphone = (props) => {
       const { recording } = await Audio.Recording.createAsync(
          Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
       );   
+      
+      setTimer(Date.now())
       setRecording(recording);
       console.log('Recording started');
     } catch (err) {
@@ -152,6 +156,7 @@ const Microphone = (props) => {
   async function stopRecording() {
     console.log('Stopping recording..');
     setRecording(undefined);
+    const timer_stop = Date.now()
     await recording.stopAndUnloadAsync();
     const uri_locater = recording.getURI(); 
     
@@ -160,6 +165,8 @@ const Microphone = (props) => {
     new_messagelist.push({
       audio:{uri:uri_locater},
       uid:filename,
+      start_time: 0,
+      stop_time: timer_stop - timer
     })
     props.setMessages(new_messagelist) //call the setMessages from the ChatMockup View, so it can update the List
 
@@ -212,7 +219,7 @@ const VoiceMessage = (props) => {
   const timestamp_ref = useRef()
   const [playAtMillis, setPlayAtMillis] = useState(-1)
   const messageIsCut = message.start_time || message.stop_time
-  const [duration, setDuration] = useState(messageIsCut ? message.stop_time - message.start_time : -1)
+  const [duration, setDuration] = useState(message.stop_time - message.start_time)
   const [shouldStop, setShouldStop] = useState(false)
 
 
@@ -256,14 +263,13 @@ const VoiceMessage = (props) => {
   }
 
   useEffect(() => {
-    console.log("PLAY AT TIME: " + playAtPos)
     if (playAtPos < 0 && playAtMillis < 0) return
 
-
+    console.log("PLAYING AT MILLIS: " + playAtMillis)
     let setToMillis =  playAtMillis < 0 && playAtPos >= 0 ? playAtPos/progressBarWidth * duration: playAtMillis
-    if (message.start_time >= 0) setToMillis = setToMillis + message.start_time
+    if (message.start_time >= 0) setToMillis = setToMillis // + message.start_time
     set_time(setToMillis, message.stop_time ? message.stop_time : duration)
-    if (playAtMillis > 0) animate_to_time(setToMillis, duration)  // only do this when setting time with word-click
+    if (playAtMillis >= 0) animate_to_time(setToMillis, duration)  // only do this when setting time with word-click
     setPlayAtPos(-1)
     setPlayAtMillis(-1)
   }, [playAtPos, playAtMillis])
@@ -281,7 +287,7 @@ const VoiceMessage = (props) => {
   }
 
   const animate_to_time = (current_time, duration) => {
-    const time = message.start_time ? current_time - message.start_time : current_time
+    const time = message.start_time >= 0 ? current_time - message.start_time : current_time
     const position = time / duration * progressBarWidth
     progressAnim.setValue(position)
   }
@@ -360,7 +366,7 @@ const VoiceMessage = (props) => {
       setIsFinishedPlaying(false)
     }
     const {positionMillis, durationMillis } = await sound.getStatusAsync()
-    console.log("Status: " + duration > -1 ? duration : durationMillis)
+    console.log("Message: " + message.stop_time)
     start_animation(positionMillis, message.stop_time ?  message.stop_time : durationMillis)
   }
 
@@ -371,52 +377,66 @@ const VoiceMessage = (props) => {
 
   return (
     <View>
-      <View style = {styles.voiceMessage}>
-        {
-          isPlaying ?
-          <Icon name = {'pause'} size = {30} style = {styles.icon} onPress={pause}/>
-          : 
-          <Icon name = {'play-arrow'} size = {30} style = {styles.icon} onPress={play}/>
-        }
-        <View style = {{flex: 1, height: 30, borderWidth: 0.5, justifyContent: 'center'}}
-          onLayout = {({nativeEvent}) => {setProgressBarWidth(nativeEvent.layout.width - CIRCLE_RADIUS)}}>
-          <Animated.View
-            ref = {timestamp_ref}
-            style = {{width: CIRCLE_RADIUS, height: CIRCLE_RADIUS, borderRadius: CIRCLE_RADIUS, backgroundColor: 'red', 
-              transform:[{translateX: progressAnim.interpolate({
-                inputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100], // TODO: maybe a dirty workaround :o
-                outputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100],
-                extrapolate: 'clamp'
-              })}]
-            }}
-            {...panResponder.panHandlers}
-          >
+      <View style={message.reply_to ? {backgroundColor: 'lightgrey', padding: 5, marginVertical: 10, borderRadius: 5} : null}>
+        <View style = {styles.voiceMessage}>
+          {
+            isPlaying ?
+            <Icon name = {'pause'} size = {30} style = {styles.icon} onPress={pause}/>
+            : 
+            <Icon name = {'play-arrow'} size = {30} style = {styles.icon} onPress={play}/>
+          }
+          <View style = {{flex: 1, height: 30, borderWidth: 0, borderRadius: 25,justifyContent: 'center'}}
+            onLayout = {({nativeEvent}) => {setProgressBarWidth(nativeEvent.layout.width - CIRCLE_RADIUS/3)}}>
+            <View style = {{borderWidth: 0.5, top: CIRCLE_RADIUS/2}}/>
+            <Animated.View
+              ref = {timestamp_ref}
+              style = {{width: CIRCLE_RADIUS/3, height: CIRCLE_RADIUS, borderRadius: CIRCLE_RADIUS, backgroundColor: 'red', 
+                transform:[{translateX: progressAnim.interpolate({
+                  inputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100], // TODO: maybe a dirty workaround :o
+                  outputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100],
+                  extrapolate: 'clamp'
+                })}]
+              }}
+              {...panResponder.panHandlers}
+            >
 
-          </Animated.View>
+            </Animated.View>
+          </View>
+          <Text style = {{paddingLeft: 10}}>{remainingTimeText}</Text>
         </View>
+        {/* <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginLeft: 50, alignItems: 'center'}}>
+          <Pressable 
+            style = {styles.transcriptionPressable}
+            onPress={() => {
+              setShowTranscription(!showTranscription)
+            }}>
+              <Text>{showTranscription ? 'hide transcription' : 'show transcription'}</Text>
+              <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}}/>
+          </Pressable>
+        </View> */}
+        {
+          showTranscription || true ? 
+            <Transcription {...props} setPlayAtMillis = {setPlayAtMillis}/>
+          :
+            null
+        }
       </View>
-      <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginLeft: 50, alignItems: 'center'}}>
-        <Text>{remainingTimeText}</Text>
-        <Pressable 
-          style = {styles.transcriptionPressable}
-          onPress={() => {
-            setShowTranscription(!showTranscription)
-          }}>
-            <Text>{showTranscription ? 'hide transcription' : 'show transcription'}</Text>
-            <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}}/>
-        </Pressable>
-      </View>
-      {
-        showTranscription ? 
-          <Transcription {...props} setPlayAtMillis = {setPlayAtMillis}/>
-        :
+      <View>
+        {
+        message.reply_to != undefined ? 
+          <View>
+            <Text style={styles.regularFont}>This is the text of the Reply we still need to implement</Text>
+          </View>
+        : 
           null
-      }
+        }
+      </View>
     </View>
   )
 }
 
 const Transcription = (props) => {
+  const [showTranscription, setShowTranscription] = useState(false)
   const [transcription, setTranscription] = useState()
   const [isLoading, setIsLoading] = useState(true)
   const [showSummary, setShowSummary] = useState(false)
@@ -443,18 +463,28 @@ const Transcription = (props) => {
     return (
       <Text>Loading replies ...</Text>
     )
+
+  if (!showTranscription)
+    return(
+      <View style = {{flexDirection: 'row', justifyContent: 'space-between'}}>
+          <Text numberOfLines = {1} style={[styles.regularFont]}>{props.message.shortened_transcription_text ? props.message.shortened_transcription_text : transcription.text}</Text>
+          <Icon name = "keyboard-arrow-down" size = {30} onPress={() => {setShowTranscription(!showTranscription)}}/>
+      </View>
+    )
+      
   
   return (
     <View>
-      <View style={{flexDirection: 'row', width: '100%'}}>
-        <View style={styles.separator}/>
+      <View style ={{flexDirection: 'row', justifyContent: 'space-between'}}>
+        {
+          showSummary && summary ?
+            <Text style={styles.regularFont}>{summary.summary}</Text>
+          :
+            <TranscriptionWordwise {...props} transcription = {transcription}/>
+        }
+        <Icon name = "keyboard-arrow-up" size = {30} onPress={() => {setShowTranscription(!showTranscription); setShowSummary(false)}}/>
       </View>
-      {
-      showSummary && summary ?
-        <Text style={styles.regularFont}>{summary.summary}</Text>
-      :
-        <TranscriptionWordwise {...props} transcription = {transcription}/>
-      }
+      {props.message.reply_to ? null : 
       <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20}}>
         <Pressable 
           style = {styles.transcriptionPressable}
@@ -464,6 +494,7 @@ const Transcription = (props) => {
             <Text>{showSummary ? 'show original' : 'show summary'}</Text>
         </Pressable>
       </View>
+      }
     </View>
   )
 }
@@ -475,7 +506,16 @@ const TranscriptionWordwise = (props) => {
   const words = props.transcription.words
   const [messages, setMessages] = [props.messages, props.setMessages]
   console.log(props.message)
-  const messageIsCut = props.message.start_time && props.message.stop_time
+  const messageIsCut = props.message.start_time >= 0 && props.message.stop_time >= 0
+
+  function concatWords() {
+    let text = ''
+    for (const x of Array(selectionEndpoints.last - selectionEndpoints.first + 1).keys()) {
+      const i = x + selectionEndpoints.first
+      text = text + ' ' + words[i].word
+    }
+    return text
+  }
 
   function toggleWordSelection(index) {
     let _selectionEndpoints = {...selectionEndpoints}
@@ -546,8 +586,11 @@ const TranscriptionWordwise = (props) => {
         selectingWords ? 
           <Icon name="reply" size={30} style={{alignSelf: 'flex-end'}}
             onPress = {() => {
+              setSelectionEndpoints({first: -1, last: -1})
               let _messages = [...messages]
               let shortended_message = {...props.message}
+              shortended_message.reply_to = props.message.sender
+              shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
               shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
               shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
               shortended_message.sender = undefined // TODO: mark as reply
@@ -576,10 +619,10 @@ const TextMessage = (props) => {
 }
 
 const SenderText = (props) => {
-  if (props.message.sender != undefined) {
+  if (props.message.sender != undefined || props.message.reply_to != undefined) {
     return (
       <Text style = {styles.senderFont}>
-        {props.message.sender}
+        {props.message.reply_to ? "Reply to: " + props.message.reply_to : props.message.sender}
       </Text>
     )
   } else return null
