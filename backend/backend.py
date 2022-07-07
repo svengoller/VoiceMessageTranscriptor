@@ -25,17 +25,17 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 def summarize(text):
     print("trying to summarize")
     with shelve.open("ai21_generic_replies_storage.db", "c") as db:
-        with  open("summarization_template.txt", "r") as f1:
+        with  open("summarization_template3.txt", "r") as f1:
             yn_template= f1.read()
         if not (text in db):
-            print("Not in DB")
+            print("NOT IN DB")
             response = requests.post("https://api.ai21.com/studio/v1/j1-jumbo/complete",
                                     headers={"Authorization": "Bearer "+api_key},
                                     json={
                                         "prompt": yn_template + text + "\nsummary:",
                                         "numResults": 1,
                                         "maxTokens": 49,
-                                        "temperature": 0.3,
+                                        "temperature": 0.2,
                                         "topKReturn": 0,
                                         "topP": 1,
                                         "countPenalty": {
@@ -121,8 +121,9 @@ def speech_to_text_api():
 def test(): 
     current_date_and_time = datetime.datetime.now()
     current_date_and_time_string = str(current_date_and_time)
-    filename = "data/"+current_date_and_time_string+".webm"
-    request.files['file'].save(filename)
+    file = request.files['file']
+    filename = "data/"+ file.filename
+    file.save(filename)
     transcription_dict = speech_to_text_local_audio(config_webm,filename)
     return json.dumps(transcription_dict, default=str)
 

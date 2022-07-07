@@ -24,7 +24,7 @@ function fetchSummary(text) {
   })
 }
 
-function fetchTranscription(filename,uri) {
+function fetchTranscription(filename,uri,uid) {
   if(filename != undefined){
     return fetch(flask_ip + '/transcribe', {
       method: 'POST',
@@ -37,16 +37,16 @@ function fetchTranscription(filename,uri) {
       })
     })
   }else{
-    return fetchTranscriptionFromBlob(uri['uri'])
+    return fetchTranscriptionFromBlob(uri['uri'],uid)
   }
   
 }
 
-async function fetchTranscriptionFromBlob(uri_locater){
+async function fetchTranscriptionFromBlob(uri_locater,filename){
   let blob = await fetch(uri_locater).then(r => r.blob());
   var data = new FormData()
-  data.append('file', blob)
-  console.log(data['name'])
+  console.log(blob)
+  data.append('file', blob,filename)
   return fetch(flask_ip + '/transcribe_blob', {
     method: 'POST',
     body:data
@@ -156,7 +156,6 @@ const Microphone = (props) => {
     await recording.stopAndUnloadAsync();
     const uri_locater = recording.getURI(); 
     
-    console.log('Recording stopped and stored at', uri_locater)
     const filename = Date.now() + ".webm";
     let new_messagelist = [...props.message_list]
     new_messagelist.push({audio:{uri:uri_locater},uid:filename})
