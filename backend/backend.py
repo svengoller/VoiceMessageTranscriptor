@@ -111,6 +111,7 @@ def summarize_api():
 @app.route('/transcribe', methods = ['POST'])
 @cross_origin()
 def speech_to_text_api():
+    print('transcribing...')
     audio = "data/" + request.get_json(force = True)['filename']
     transcription_dict = speech_to_text_local_audio(config_wav, audio)
     return json.dumps(transcription_dict, default=str)
@@ -146,7 +147,7 @@ config_webm = speech.RecognitionConfig(sample_rate_hertz=48000,
     
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5000, host='0.0.0.0')
 
 
 """

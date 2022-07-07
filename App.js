@@ -9,7 +9,7 @@ import { audio_mode } from './AudioConfigs';
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://127.0.0.1:5001'
+const flask_ip = 'http://127.0.0.1:5000'
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
