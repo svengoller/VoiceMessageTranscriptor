@@ -190,6 +190,10 @@ export default function App() {
     }
 
     async function stopRecording() {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
       console.log('Stopping recording..');
       setRecording(undefined);
       const timer_stop = Date.now()
@@ -396,6 +400,7 @@ export default function App() {
         await sound.playAsync()
         setIsFinishedPlaying(false)
       }
+     
       const { positionMillis, durationMillis } = await sound.getStatusAsync()
       console.log("Message: " + message.stop_time)
       start_animation(positionMillis, message.stop_time ? message.stop_time : durationMillis)
