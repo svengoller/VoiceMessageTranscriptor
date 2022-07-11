@@ -1,4 +1,5 @@
 import json
+from sunau import AUDIO_FILE_ENCODING_ALAW_8, AUDIO_FILE_ENCODING_LINEAR_16, AUDIO_FILE_ENCODING_LINEAR_32
 import requests
 import shelve
 import requests
@@ -90,6 +91,9 @@ def speech_to_text_local_audio(config, audio):
         else:
             response = db[audio]
         db.close()
+        print(response.results)
+        transcription=""
+        list = []
         for i, result in enumerate(response.results):
             alternative = result.alternatives[0]
             transcription = alternative.transcript
@@ -125,7 +129,12 @@ def test():
     file = request.files['file']
     filename = "data/"+ file.filename
     file.save(filename)
-    transcription_dict = speech_to_text_local_audio(config_webm,filename)
+    file_split = file.filename.split(".")
+    config = config_webm
+    if file_split[-1]=='wav':
+        config = config_wav2
+    transcription_dict = speech_to_text_local_audio(config,filename)
+    print("transcription: " + transcription_dict['text'])
     return json.dumps(transcription_dict, default=str)
 
 
@@ -136,6 +145,16 @@ config_wav = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_word_time_offsets=True,
                                       enable_word_confidence=True
                                       )
+
+config_wav2 = speech.RecognitionConfig(sample_rate_hertz=48000,
+                                        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                                      enable_automatic_punctuation=True,
+                                      language_code='en-US',
+                                      audio_channel_count=1,
+                                      enable_word_time_offsets=True,
+                                      enable_word_confidence=True
+                                      )
+
 
 config_webm = speech.RecognitionConfig(sample_rate_hertz=48000,
                                       enable_automatic_punctuation=True,
