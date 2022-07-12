@@ -1,6 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View,FlatList, KeyboardAvoidingView, 
-  TextInput, Platform, SafeAreaView, Animated, Easing, PanResponder, Pressable } from 'react-native';
+import {
+  StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
+  TextInput, Platform, SafeAreaView, Animated, Easing, PanResponder, Pressable, Keyboard
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { mockup_messages } from './Messages';
 import { Audio } from 'expo-av';
@@ -93,18 +95,16 @@ async function fetchTranscriptionFromBlob(uri, filename) {
 
 export default function App() {
   const [messages, setMessages] = useState(mockup_messages)
-  const [reply, setReply] = useState({})
+  const [reply, setReply] = useState(undefined)
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: 'lightgrey' }} >
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'lightgrey' }} >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}>
         <ChatMockup messages={messages} setMessages={setMessages} reply={reply} setReply={setReply} />
-      </SafeAreaView>
-
-    </KeyboardAvoidingView>
-
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -154,29 +154,65 @@ const TopBar = (props) => {
  * BottomBar displaying TextInput, etc
  */
 const BottomBar = (props) => {
-  const [text, setText] = useState('');
+  const [replyText, setText] = useState('')
+  const [messages, setMessages] = [props.messages, props.setMessages]
+  let reply = props.reply
 
   function sendText() {
+    let _messages = [...messages]
+    if (reply != undefined) {
+      reply.reply_text = replyText;
+      _messages.push(reply)
+      props.setReply(undefined)
+    } else {
+      _messages.push({ text: replyText })
+    }
+    setMessages(_messages)
+    setText('')
+    Keyboard.dismiss()
+  }
 
+  function closeReply() {
+    props.setReply(undefined)
+    setText('')
+    Keyboard.dismiss()
   }
 
   return (
-    <View>
-      <View style={styles.replyTextInput}>
-        <View style={styles.voiceMessage}>
-          <Icon name={'play-arrow'} size={30} style={styles.icon} />
-        </View>
-
-
-      </View>
+    <View >
+      {reply != undefined ? <ReplyComponent message={reply} closeReply={closeReply} /> : null}
       <View style={styles.bottomBar}>
         <Icon name='add' size={30} style={styles.icon} />
-        <TextInput style={styles.textInput} editable={true} onChangeText={newText => setText(newText)} />
-        {text == '' ? <Microphone {...props} /> : <Icon name='send' size={30} style={styles.icon} onPress={sendText} />}
+        <TextInput style={styles.textInput} editable={true} onChangeText={newText => setText(newText)} value={replyText} />
+        {replyText == '' ? <Microphone {...props} /> : <Icon name='send' size={30} style={styles.icon} onPress={sendText} />}
         <Icon name='photo-camera' size={30} style={styles.icon} />
       </View>
     </View>
 
+
+  )
+}
+
+const ReplyComponent = (props) => {
+
+  function play() {
+
+  }
+
+  function closeReply() {
+    props.closeReply()
+  }
+  return (
+    <View style={{ width: '100%', padding: 10, borderRadius: 10, backgroundColor: '#c2c2c2' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <SenderText {...props} />
+        <Icon name={'close'} size={25} onPress={closeReply} />
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center' }}>
+        <Icon name={'play-arrow'} size={25} onPress={play} />
+        <Text numberOfLines={1} style={[{ flex: 1 }, styles.regularFont]}>{props.message.shortened_transcription_text}</Text>
+      </View>
+    </View>
 
   )
 }
@@ -305,7 +341,7 @@ const VoiceMessage = (props) => {
         [
           null,
           { dx: progressAnim }
-        ],
+        ], { useNativeDriver: false }
       ),
       onPanResponderRelease: (event, gestureState) => {
         props.scrollview_ref.current.setNativeProps({ scrollEnabled: 'true' })
@@ -337,6 +373,7 @@ const VoiceMessage = (props) => {
       toValue: progressBarWidth,
       duration: end_time - current_time,
       easing: Easing.linear,
+      useNativeDriver: false
     }).start()
   }
 
@@ -487,7 +524,7 @@ const VoiceMessage = (props) => {
         {
           message.reply_to != undefined ?
             <View>
-              <Text style={styles.regularFont}>This is the text of the Reply we still need to implement</Text>
+              <Text style={styles.regularFont}>{message.reply_text}</Text>
             </View>
             :
             null
@@ -567,6 +604,7 @@ const TranscriptionWordwise = (props) => {
 
   const words = props.transcription.words
   const [messages, setMessages] = [props.messages, props.setMessages]
+  const [reply, setReply] = [props.reply, props.setReply]
   console.log(props.message)
   const messageIsCut = props.message.start_time >= 0 && props.message.stop_time >= 0
 
@@ -649,15 +687,13 @@ const TranscriptionWordwise = (props) => {
           <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
             onPress={() => {
               setSelectionEndpoints({ first: -1, last: -1 })
-              let _messages = [...messages]
               let shortended_message = { ...props.message }
               shortended_message.reply_to = props.message.sender
               shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
               shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
               shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
               shortended_message.sender = undefined // TODO: mark as reply
-              _messages.push(shortended_message)
-              setMessages(_messages)
+              setReply(shortended_message)
             }} />
           :
           null
@@ -687,7 +723,8 @@ const SenderText = (props) => {
         {props.message.reply_to ? "Reply to: " + props.message.reply_to : props.message.sender}
       </Text>
     )
-  } else return null
+  } else return (
+    <Text style={styles.senderFont}>Me: </Text>)
 }
 
 const styles = StyleSheet.create({
@@ -712,7 +749,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'lightgrey',
     flexDirection: 'row',
     padding: 10,
-    marginHorizontal: 20,
+
     justifyContent: 'flex-start',
     alignItems: 'center',
   },
