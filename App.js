@@ -7,35 +7,12 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { mockup_messages } from './Messages';
 import { Audio } from 'expo-av';
 import React, { useEffect, useState, useRef } from 'react';
-import { audio_mode } from './AudioConfigs';
+import { audio_mode, RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './AudioConfigs';
 
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
 const flask_ip = 'http://192.168.2.111:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
-
-const RECORDING_OPTIONS_PRESET_HIGH_QUALITY = {
-  isMeteringEnabled: true,
-  android: {
-    extension: '.m4a',
-    outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
-    audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
-    sampleRate: 44100,
-    numberOfChannels: 2,
-    bitRate: 128000,
-  },
-  ios: {
-    extension: '.wav',
-    outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
-    audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
-    sampleRate: 48000,
-    numberOfChannels: 1,
-    bitRate: 128000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
-  },
-};
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
