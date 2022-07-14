@@ -40,7 +40,6 @@ function fetchTranscription(filename, uri, uid) {
       })
     })
   } else {
-    console.log("uri:" + uri['uri'])
     return fetchTranscriptionFromBlob(uri['uri'], uid)
   }
 
@@ -50,7 +49,6 @@ async function fetchTranscriptionFromBlob(uri, filename) {
   var data = new FormData()
   if (Platform.OS == 'ios') {
     //fetching the audio file for ios devices
-    console.log("uri: " + uri)
     data.append('file', {
       uri,
       type: "audio/wav",
@@ -61,7 +59,6 @@ async function fetchTranscriptionFromBlob(uri, filename) {
     let blob = await fetch(uri).then(r => r.blob());
     data.append('file', blob, filename)
   }
-  console.log(uri)
   return fetch(flask_ip + '/transcribe_blob', {
     method: 'POST',
     body: data
@@ -156,7 +153,7 @@ const BottomBar = (props) => {
   }
 
   return (
-    <View >
+    <View>
       {reply != undefined ? <ReplyComponent message={reply} closeReply={closeReply} /> : null}
       <View style={styles.bottomBar}>
         <Icon name='add' size={30} style={styles.icon} />
@@ -179,14 +176,15 @@ const ReplyComponent = (props) => {
   function closeReply() {
     props.closeReply()
   }
+
   return (
-    <View style={{ width: '100%', padding: 10, borderRadius: 10, backgroundColor: '#c2c2c2' }}>
+    <View style={{ width: '100%', padding: 10, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: '#c2c2c2' }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <SenderText {...props} />
         <Icon name={'close'} size={25} onPress={closeReply} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center' }}>
-        <Icon name={'play-arrow'} size={25} onPress={play} />
+        <Icon name={'play-arrow'} size={25}/>
         <Text numberOfLines={1} style={[{ flex: 1 }, styles.regularFont]}>{props.message.shortened_transcription_text}</Text>
       </View>
     </View>
@@ -293,6 +291,7 @@ const VoiceMessage = (props) => {
   const [duration, setDuration] = useState(message.stop_time - message.start_time)
   const [shouldStop, setShouldStop] = useState(false)
   const [bookmarks, setBookmarks] = useState([])
+  const [currentTime, setCurrentTime] = useState(message.start_time)
 
 
   function timeToString(millis) {
@@ -337,7 +336,6 @@ const VoiceMessage = (props) => {
   useEffect(() => {
     if (playAtPos < 0 && playAtMillis < 0) return
 
-    console.log("PLAYING AT MILLIS: " + playAtMillis)
     let setToMillis = playAtMillis < 0 && playAtPos >= 0 ? playAtPos / progressBarWidth * duration : playAtMillis
     if (message.start_time >= 0) setToMillis = setToMillis // + message.start_time
     set_time(setToMillis, message.stop_time ? message.stop_time : duration)
@@ -370,13 +368,13 @@ const VoiceMessage = (props) => {
   }
 
   const source = message.audio
-  console.log(message.start_time)
   const initialStatus = {
-    progressUpdateIntervalMillis: 500,  // TODO: maybe even less since this is responsible for stopping audio
+    progressUpdateIntervalMillis: 250,  // TODO: maybe even less since this is responsible for stopping audio
     positionMillis: message.start_time ? message.start_time : 0,  // TODO: change if it should start at another place
     rate: 1,
   }
   const onPlaybackStatusUpdate = async (status) => {
+    setCurrentTime(status.positionMillis)
     // TODO: maybe animations? Stopping if it is after a certain point (cutting)
     if (status.positionMillis >= message.stop_time) {
       setShouldStop(true)
@@ -386,7 +384,6 @@ const VoiceMessage = (props) => {
     setIsPlaying(status.isPlaying)
     if (status.durationMillis > 0 && !messageIsCut) {
       setDuration(status.durationMillis)
-      //console.log("SETTING DURATION: " + duration)
     }
     const isAtBeginning = (status.positionMillis == 0 || status.positionMillis == message.start_time)
     const current_time_str = timeToString(message.start_time ? status.positionMillis - message.start_time : status.positionMillis)
@@ -440,7 +437,6 @@ const VoiceMessage = (props) => {
     }
 
     const { positionMillis, durationMillis } = await sound.getStatusAsync()
-    console.log("Message: " + message.stop_time)
     start_animation(positionMillis, message.stop_time ? message.stop_time : durationMillis)
   }
 
@@ -518,7 +514,7 @@ const VoiceMessage = (props) => {
         </View> */}
         {
           showTranscription || true ?
-            <Transcription bookmarks={bookmarks} setBookmarks={setBookmarks} {...props} playAtMillis={playAtMillis}setPlayAtMillis={setPlayAtMillis} />
+            <Transcription bookmarks={bookmarks} setBookmarks={setBookmarks} {...props} playAtMillis={playAtMillis} setPlayAtMillis={setPlayAtMillis} currentTime={currentTime}/>
             :
             null
         }
@@ -566,13 +562,13 @@ const Transcription = (props) => {
       <Text>Loading replies ...</Text>
     )
 
-  if (!showTranscription)
-    return (
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text numberOfLines={1} style={[styles.regularFont]}>{props.message.shortened_transcription_text ? props.message.shortened_transcription_text : transcription.text}</Text>
-        <Icon name="keyboard-arrow-down" size={30} onPress={() => { setShowTranscription(!showTranscription) }} />
-      </View>
-    )
+  // if (!showTranscription)
+  //   return (
+  //     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+  //       <Text numberOfLines={1} style={[styles.regularFont]}>{props.message.shortened_transcription_text ? props.message.shortened_transcription_text : transcription.text}</Text>
+  //       <Icon name="keyboard-arrow-down" size={30} onPress={() => { setShowTranscription(!showTranscription) }} />
+  //     </View>
+  //   )
 
 
   return (
@@ -584,7 +580,7 @@ const Transcription = (props) => {
             :
             <TranscriptionWordwise {...props} transcription={transcription} />
         }
-        <Icon name="keyboard-arrow-up" size={30} onPress={() => { setShowTranscription(!showTranscription); setShowSummary(false) }} />
+        {/* <Icon name="keyboard-arrow-up" size={30} onPress={() => { setShowTranscription(!showTranscription); setShowSummary(false) }} /> */}
       </View>
       {props.message.reply_to ? null :
         <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20 }}>
@@ -593,7 +589,7 @@ const Transcription = (props) => {
             onPress={() => {
               setShowSummary(!showSummary)
             }}>
-            <Text>{showSummary ? 'showx original' : 'show summary'}</Text>
+            <Text>{showSummary ? 'show original' : 'show summary'}</Text>
           </Pressable>
         </View>
       }
@@ -608,8 +604,20 @@ const TranscriptionWordwise = (props) => {
   const words = props.transcription.words
   const [messages, setMessages] = [props.messages, props.setMessages]
   const [reply, setReply] = [props.reply, props.setReply]
-  console.log(props.message)
   const messageIsCut = props.message.start_time >= 0 && props.message.stop_time >= 0
+  const [currentWord, setCurrentWord] = useState()
+  const lyrics_ref = useRef()
+
+  useEffect(() => {
+    // find out what word is currently spoken
+    const newCurrentWord = words.find(word => word.start_time <= props.currentTime && props.currentTime <= word.stop_time)
+    if (newCurrentWord != undefined) setCurrentWord(newCurrentWord)
+  }, [props.currentTime])
+
+  useEffect(() => {
+    console.log(currentWord)
+    lyrics_ref.current?.scrollToItem({item: currentWord, viewPosition: 0.5})
+  }, [currentWord])
 
   function concatWords() {
     let text = ''
@@ -642,19 +650,59 @@ const TranscriptionWordwise = (props) => {
       _selectionEndpoints.first = index
       _selectionEndpoints.last = index
     }
-    console.log(_selectionEndpoints)
     setSelectionEndpoints(_selectionEndpoints)
   }
 
-  function toMillis(time_str) {
-    const array = time_str.split(":")
-    const milliseconds = parseInt(array[0] * 60 * 60, 10) + parseInt(array[1] * 60, 10) + parseFloat(array[2], 10) * 1000
-    return milliseconds
-  }
+  return (
+    <FlatList
+      ref = {lyrics_ref}
+      data = {words}
+      horizontal = {true}
+      showsHorizontalScrollIndicator={false}
+      keyExtractor = {(item, index) => index}
+      renderItem = {({item, index}) => {
+        const word = item
+        const start_millis = word.start_time
+        const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
+        const isSelectable = selectingWords && (index === selectionEndpoints.first - 1 || index === selectionEndpoints.last + 1)
+        const isInCut = !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
+
+        let isPlayed =false;
+        if(words[index-1]==undefined){
+          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
+        }else if(words[index+1]==undefined){
+          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time)
+        }else{
+          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time) || 
+          Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
+        }
+
+        if (isInCut)
+          return (
+            <Pressable
+              key={index}
+              onPress={() => {
+                if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+                  toggleWordSelection(index)
+                else if (!selectingWords) {
+                  props.setPlayAtMillis(start_millis)
+                }
+              }}
+              onLongPress={() => {
+                toggleWordSelection(index)
+              }}
+              style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
+              <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'bold' : 'normal'}}>{word.word + " "}</Text>
+            </Pressable>
+          )
+      }}
+    />
+  )
+
 
   return (
     <View style={{ flex: 1, flexDirection: 'column' }}>
-      <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+      <View style={{flexDirection: 'row', flexWrap: 'nowrap'}}>
         {
           words.map((word, index) => {
             const start_millis = toMillis(word.start_time)
@@ -663,8 +711,6 @@ const TranscriptionWordwise = (props) => {
             const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
 
             let isPlayed =false;
-            console.log("playmillis")
-            console.log(props.playAtMillis)
             if(words[index-1]==undefined){
               isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
             }else if(words[index+1]==undefined){
@@ -673,7 +719,6 @@ const TranscriptionWordwise = (props) => {
               isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index-1].start_time)) || 
               Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
             }
-            //console.log(messageIsCut)
 
             if (isInCut)
               return (
@@ -700,25 +745,21 @@ const TranscriptionWordwise = (props) => {
           <View style={{ flexDirection: 'row-reverse' }}>
             <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
               onPress={() => {
-                setSelectionEndpoints({ first: -1, last: -1 })
                 let shortended_message = { ...props.message }
-                console.log("messages: ")
-                console.log(props.messages)
                 shortended_message.reply_to = props.message.sender
                 shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
                 shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
                 shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
                 shortended_message.sender = undefined // TODO: mark as reply
+                setSelectionEndpoints({ first: -1, last: -1 })
                 setReply(shortended_message)
               }} />
             <Icon name='bookmark' size={30} style={{ alignSelf: 'flex-end' }} onPress={() => {
-              setSelectionEndpoints({ first: -1, last: -1 })
               let _bookmarks = [...props.bookmarks]
-              console.log("bookmarks")
-              console.log(_bookmarks)
               let word = words[selectionEndpoints.first]
               word.start_millis = toMillis(word.start_time)
               _bookmarks.push(word)
+              setSelectionEndpoints({ first: -1, last: -1 })
               props.setBookmarks(_bookmarks)
             }}></Icon>
           </View>
@@ -757,7 +798,7 @@ const SenderText = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'beige',
   },
 
   topBar: {
