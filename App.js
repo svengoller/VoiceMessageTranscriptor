@@ -304,7 +304,7 @@ const VoiceMessage = (props) => {
   const message = props.message
   const [sound, setSound] = useState()
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isFinishedPlaying, setIsFinishedPlaying] = useState(true)  // also true before it is played
+  const [isFinishedPlaying, setIsFinishedPlaying] = useState(true)  // also true before itx is played
   const [progressBarWidth, setProgressBarWidth] = useState(-1)
   const [showTranscription, setShowTranscription] = useState(false)
   const [remainingTimeText, setRemainingTimeText] = useState()
@@ -315,6 +315,7 @@ const VoiceMessage = (props) => {
   const messageIsCut = message.start_time || message.stop_time
   const [duration, setDuration] = useState(message.stop_time - message.start_time)
   const [shouldStop, setShouldStop] = useState(false)
+  const [bookmarks, setBookmarks] = useState([])
 
 
   function timeToString(millis) {
@@ -483,7 +484,32 @@ const VoiceMessage = (props) => {
           }
           <View style={{ flex: 1, height: 30, borderWidth: 0, borderRadius: 25, justifyContent: 'center' }}
             onLayout={({ nativeEvent }) => { setProgressBarWidth(nativeEvent.layout.width - CIRCLE_RADIUS / 3) }}>
-            <View style={{ borderWidth: 0.5, top: CIRCLE_RADIUS / 2 }} />
+            <View style={{ borderWidth: 0.5, top: CIRCLE_RADIUS / 2, width: '100%' }} >
+            </View>
+
+            {
+              bookmarks.map((word, index) => {
+                let percent = "" + (Math.round((word.start_millis / duration) * 100, 2)) + "%";
+                
+                function deleteBookmark(){
+                  let _bookmarks = [...bookmarks]
+                  _bookmarks.splice(index,1)
+                  setBookmarks(_bookmarks)
+                }
+
+                return (
+                  <Pressable onPress={() => setPlayAtMillis(word.start_millis)} 
+                    onLongPress={deleteBookmark}
+                  key={index} style={{
+                    position: 'absolute',
+                    height: '100%',
+                    width: 3,
+                    left: percent,
+                    backgroundColor: 'orange',
+                  }} />
+                )
+              })
+            }
             <Animated.View
               ref={timestamp_ref}
               style={{
@@ -515,7 +541,7 @@ const VoiceMessage = (props) => {
         </View> */}
         {
           showTranscription || true ?
-            <Transcription {...props} setPlayAtMillis={setPlayAtMillis} />
+            <Transcription bookmarks={bookmarks} setBookmarks={setBookmarks} {...props} playAtMillis={playAtMillis}setPlayAtMillis={setPlayAtMillis} />
             :
             null
         }
@@ -590,7 +616,7 @@ const Transcription = (props) => {
             onPress={() => {
               setShowSummary(!showSummary)
             }}>
-            <Text>{showSummary ? 'show original' : 'show summary'}</Text>
+            <Text>{showSummary ? 'showx original' : 'show summary'}</Text>
           </Pressable>
         </View>
       }
@@ -657,9 +683,19 @@ const TranscriptionWordwise = (props) => {
             const start_millis = toMillis(word.start_time)
             const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
             const isSelectable = selectingWords && (index === selectionEndpoints.first - 1 || index === selectionEndpoints.last + 1)
-
             const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
 
+            let isPlayed =false;
+            console.log("playmillis")
+            console.log(props.playAtMillis)
+            if(words[index-1]==undefined){
+              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
+            }else if(words[index+1]==undefined){
+              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index-1].start_time))
+            }else{
+              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index-1].start_time)) || 
+              Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
+            }
             //console.log(messageIsCut)
 
             if (isInCut)
@@ -676,7 +712,7 @@ const TranscriptionWordwise = (props) => {
                     toggleWordSelection(index)
                   }}
                   style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
-                  <Text style={styles.regularFont}>{word.word + " "}</Text>
+                  <Text style={{fontSize:15,color: 'black'}}>{word.word + " "}</Text>
                 </Pressable>
               )
           })
@@ -684,17 +720,31 @@ const TranscriptionWordwise = (props) => {
       </View>
       {
         selectingWords ?
-          <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
-            onPress={() => {
+          <View style={{ flexDirection: 'row-reverse' }}>
+            <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
+              onPress={() => {
+                setSelectionEndpoints({ first: -1, last: -1 })
+                let shortended_message = { ...props.message }
+                console.log("messages: ")
+                console.log(props.messages)
+                shortended_message.reply_to = props.message.sender
+                shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
+                shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
+                shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
+                shortended_message.sender = undefined // TODO: mark as reply
+                setReply(shortended_message)
+              }} />
+            <Icon name='bookmark' size={30} style={{ alignSelf: 'flex-end' }} onPress={() => {
               setSelectionEndpoints({ first: -1, last: -1 })
-              let shortended_message = { ...props.message }
-              shortended_message.reply_to = props.message.sender
-              shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
-              shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
-              shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
-              shortended_message.sender = undefined // TODO: mark as reply
-              setReply(shortended_message)
-            }} />
+              let _bookmarks = [...props.bookmarks]
+              console.log("bookmarks")
+              console.log(_bookmarks)
+              let word = words[selectionEndpoints.first]
+              word.start_millis = toMillis(word.start_time)
+              _bookmarks.push(word)
+              props.setBookmarks(_bookmarks)
+            }}></Icon>
+          </View>
           :
           null
       }
