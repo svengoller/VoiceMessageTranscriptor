@@ -1,4 +1,4 @@
-import { InterruptionModeIOS } from "expo-av";
+import { InterruptionModeIOS, Audio } from "expo-av";
 
 // Audio Mode
 export const audio_mode = {
