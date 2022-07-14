@@ -10,7 +10,7 @@ import {Platform} from 'react-native' ;
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://192.168.178.80:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
+const flask_ip = 'http://192.168.2.111:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
 
 const RECORDING_OPTIONS_PRESET_HIGH_QUALITY = {
   isMeteringEnabled: true,
