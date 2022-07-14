@@ -16,6 +16,7 @@ web-build/
 #pip and venv
 .venv/
 backend/.vmt_venv
+backend/.env
 backend/__pycache__/backend.cpython-38.pyc
 backend/__pycache__/backend.cpython-310.pyc
 backend/data/*.webm
