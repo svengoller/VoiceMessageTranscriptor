@@ -535,12 +535,13 @@ const VoiceMessage = (props) => {
 
 const Transcription = (props) => {
   const [showTranscription, setShowTranscription] = useState(false)
-  const [transcription, setTranscription] = useState()
+  const [transcription, setTranscription] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showSummary, setShowSummary] = useState(false)
   const [summary, setSummary] = useState()
 
   useEffect(() => {
+    console.log("loading transcription for: " + JSON.stringify(props.message))
     if (!transcription)
       fetchTranscription(props.message.filename, props.message.audio, props.message.uid)
         .then(async (response) => { setTranscription(await response.json()) })
@@ -608,6 +609,18 @@ const TranscriptionWordwise = (props) => {
   const [currentWord, setCurrentWord] = useState()
   const lyrics_ref = useRef()
   const [viewableWords, setViewableWords] = useState([])
+  const [showTranscription, setShowTranscription] = useState(false)
+
+  // const words_in_cut = words.map((word, index) => {
+  //   const isInCut = !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
+  //   if (isInCut) return word
+  // })
+
+  const words_in_cut = words.filter((word) => {
+    return !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
+  })
+
+  console.log(words_in_cut)
 
   useEffect(() => {
     // find out what word is currently spoken
@@ -658,107 +671,75 @@ const TranscriptionWordwise = (props) => {
     setViewableWords(viewableItems.map((viewableItem, index) => viewableItem.item))
   }, [])
 
-  return (
-    <FlatList
-      onViewableItemsChanged={handleViewableItemsChanges}
-      viewabilityConfig={{
-        itemVisiblePercentThreshold: 100
-      }}
-      ref = {lyrics_ref}
-      data = {words}
-      horizontal = {true}
-      showsHorizontalScrollIndicator={false}
-      keyExtractor = {(item, index) => index}
-      renderItem = {({item, index}) => {
-        const word = item
-        const start_millis = word.start_time
-        const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
-        const isSelectable = selectingWords && (index === selectionEndpoints.first - 1 || index === selectionEndpoints.last + 1)
-        const isInCut = !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
+  const WordComponent = ({item, index}) => {
+    const word = item
+    const start_millis = word.start_time
+    const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
+    const isSelectable = selectingWords && (index === selectionEndpoints.first - 1 || index === selectionEndpoints.last + 1)
 
-        let isPlayed =false;
-        if(words[index-1]==undefined){
-          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
-        }else if(words[index+1]==undefined){
-          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time)
-        }else{
-          isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time) || 
-          Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
-        }
-
-        if (isInCut)
-          return (
-            <Pressable
-              key={index}
-              onPress={() => {
-                if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
-                  toggleWordSelection(index)
-                else if (!selectingWords) {
-                  props.setPlayAtMillis(start_millis)
-                }
-              }}
-              onLongPress={() => {
-                toggleWordSelection(index)
-              }}
-              style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
-              <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'normal' : 'normal'}}>{word.word + " "}</Text>
-            </Pressable>
-          )
-      }}
-    />
-  )
-
+    let isPlayed =false;
+    if(words[index-1]==undefined){
+      isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
+    }else if(words[index+1]==undefined){
+      isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time)
+    }else{
+      isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index-1].start_time) || 
+      Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-words[index+1].start_time)
+    }
+      
+    return (
+      <Pressable
+        key={index}
+        onPress={() => {
+          if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+            toggleWordSelection(index)
+          else if (!selectingWords) {
+            props.setPlayAtMillis(start_millis)
+          }
+        }}
+        onLongPress={() => {
+          toggleWordSelection(index)
+        }}
+        style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
+        <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'normal' : 'normal'}}>{word.word + " "}</Text>
+      </Pressable>
+    )
+  }
 
   return (
-    <View style={{ flex: 1, flexDirection: 'column' }}>
-      <View style={{flexDirection: 'row', flexWrap: 'nowrap'}}>
-        {
-          words.map((word, index) => {
-            const start_millis = toMillis(word.start_time)
-            const isSelected = index >= selectionEndpoints.first && index <= selectionEndpoints.last
-            const isSelectable = selectingWords && (index === selectionEndpoints.first - 1 || index === selectionEndpoints.last + 1)
-            const isInCut = !messageIsCut || (props.message.start_time <= toMillis(word.start_time) && props.message.stop_time >= toMillis(word.stop_time))
-
-            let isPlayed =false;
-            if(words[index-1]==undefined){
-              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
-            }else if(words[index+1]==undefined){
-              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index-1].start_time))
-            }else{
-              isPlayed = Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index-1].start_time)) || 
-              Math.abs(props.playAtMillis-start_millis)< Math.abs(props.playAtMillis-toMillis(words[index+1].start_time))
-            }
-
-            if (isInCut)
-              return (
-                <Pressable
-                  key={index}
-                  onPress={() => {
-                    if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
-                      toggleWordSelection(index)
-                    else if (!selectingWords)
-                      props.setPlayAtMillis(start_millis)
-                  }}
-                  onLongPress={() => {
-                    toggleWordSelection(index)
-                  }}
-                  style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
-                  <Text style={{fontSize:15,color: 'black'}}>{word.word + " "}</Text>
-                </Pressable>
-              )
-          })
-        }
-      </View>
+    <View style = {{flex: 1, flexDirection: 'row'}}>
+      {showTranscription ? 
+        <View style={{flex: 1,flexDirection: 'row', flexWrap: 'wrap'}}>
+          {words_in_cut.map((item, index) => WordComponent({item, index}))}
+        </View>
+      :
+        <FlatList
+          onViewableItemsChanged={handleViewableItemsChanges}
+          viewabilityConfig={{
+            itemVisiblePercentThreshold: 100
+          }}
+          ref = {lyrics_ref}
+          data = {words_in_cut}
+          horizontal = {true}
+          showsHorizontalScrollIndicator={false}
+          keyExtractor = {(item, index) => index}
+          renderItem = {WordComponent}
+        />
+      }
+      {viewableWords.at(-1) === words_in_cut.at(-1) ? null : 
+        <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}} onPress={() => setShowTranscription(!showTranscription)}/>
+      } 
+      <View>
       {
         selectingWords ?
           <View style={{ flexDirection: 'row-reverse' }}>
             <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
               onPress={() => {
-                let shortended_message = { ...props.message }
+                let shortended_message = {...props.message}
                 shortended_message.reply_to = props.message.sender
                 shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
-                shortended_message.start_time = toMillis(words[selectionEndpoints.first].start_time)
-                shortended_message.stop_time = toMillis(words[selectionEndpoints.last].stop_time)
+                shortended_message.start_time = words[selectionEndpoints.first].start_time
+                shortended_message.stop_time = words[selectionEndpoints.last].stop_time
                 shortended_message.sender = undefined // TODO: mark as reply
                 setSelectionEndpoints({ first: -1, last: -1 })
                 setReply(shortended_message)
@@ -766,7 +747,7 @@ const TranscriptionWordwise = (props) => {
             <Icon name='bookmark' size={30} style={{ alignSelf: 'flex-end' }} onPress={() => {
               let _bookmarks = [...props.bookmarks]
               let word = words[selectionEndpoints.first]
-              word.start_millis = toMillis(word.start_time)
+              word.start_millis = word.start_time
               _bookmarks.push(word)
               setSelectionEndpoints({ first: -1, last: -1 })
               props.setBookmarks(_bookmarks)
@@ -775,9 +756,9 @@ const TranscriptionWordwise = (props) => {
           :
           null
       }
+      </View>
     </View>
   )
-
 }
 
 /**
