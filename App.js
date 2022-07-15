@@ -6,7 +6,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { mockup_messages } from './Messages';
 import { Audio } from 'expo-av';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { audio_mode, RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './AudioConfigs';
 
 /******************** LOGIC  ******************/
@@ -607,6 +607,7 @@ const TranscriptionWordwise = (props) => {
   const messageIsCut = props.message.start_time >= 0 && props.message.stop_time >= 0
   const [currentWord, setCurrentWord] = useState()
   const lyrics_ref = useRef()
+  const [viewableWords, setViewableWords] = useState([])
 
   useEffect(() => {
     // find out what word is currently spoken
@@ -615,8 +616,8 @@ const TranscriptionWordwise = (props) => {
   }, [props.currentTime])
 
   useEffect(() => {
-    console.log(currentWord)
-    lyrics_ref.current?.scrollToItem({item: currentWord, viewPosition: 0.5})
+    if (viewableWords[viewableWords.length - 1] === currentWord || !viewableWords.includes(currentWord))
+      lyrics_ref.current?.scrollToItem({animated: true,item: currentWord, viewPosition: 0.1})
   }, [currentWord])
 
   function concatWords() {
@@ -653,8 +654,16 @@ const TranscriptionWordwise = (props) => {
     setSelectionEndpoints(_selectionEndpoints)
   }
 
+  const handleViewableItemsChanges = useCallback(({changed, viewableItems})=> {
+    setViewableWords(viewableItems.map((viewableItem, index) => viewableItem.item))
+  }, [])
+
   return (
     <FlatList
+      onViewableItemsChanged={handleViewableItemsChanges}
+      viewabilityConfig={{
+        itemVisiblePercentThreshold: 100
+      }}
       ref = {lyrics_ref}
       data = {words}
       horizontal = {true}
@@ -692,7 +701,7 @@ const TranscriptionWordwise = (props) => {
                 toggleWordSelection(index)
               }}
               style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
-              <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'bold' : 'normal'}}>{word.word + " "}</Text>
+              <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'normal' : 'normal'}}>{word.word + " "}</Text>
             </Pressable>
           )
       }}
