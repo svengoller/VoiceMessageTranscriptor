@@ -1,2 +1,5 @@
 IDEAS:
 - Wörter zeigen während man slided wie lupe
+
+TODO:
+- Überall klicken (auf progress bar) um zu diesem Punkt zu gelangen
