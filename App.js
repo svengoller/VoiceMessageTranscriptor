@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
+import { COLORS, styles } from './Styling';
 import {
   StyleSheet, Text, View, FlatList, KeyboardAvoidingView,
-  TextInput, Platform, SafeAreaView, Animated, Easing, PanResponder, Pressable, Keyboard
+  TextInput, Platform, SafeAreaView, Animated, Easing, PanResponder, Pressable, Keyboard,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { mockup_messages } from './Messages';
@@ -12,7 +13,7 @@ import { audio_mode, RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './AudioConfig
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://192.168.2.111:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
+const flask_ip = 'http://192.168.2.104:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
@@ -72,11 +73,11 @@ export default function App() {
   const [reply, setReply] = useState(undefined)
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'lightgrey' }} >
+    <SafeAreaView style={styles.container} >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}>
-        <ChatMockup messages={messages} setMessages={setMessages} reply={reply} setReply={setReply} />
+        <ChatMockup messages={messages} setMessages={setMessages} reply={reply} setReply={setReply}/>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -110,8 +111,8 @@ const ChatMockup = (props) => {
 const TopBar = (props) => {
   return (
     <View style={styles.topBar}>
-      <Icon name='arrow-back-ios' size={30} style={styles.icon} />
-      <Icon name='group' size={30} style={styles.groupIcon} />
+      <Icon name='arrow-back-ios' size={20} style={styles.icon} />
+      <View style={styles.groupIcon}><Icon name='group' size={30}/></View>
 
       <View style={styles.groupTextContainer}>
         <Text style={styles.groupName} numberOfLines={1}>CS Course 2022</Text>
@@ -128,7 +129,7 @@ const TopBar = (props) => {
  * BottomBar displaying TextInput, etc
  */
 const BottomBar = (props) => {
-  const [replyText, setText] = useState('')
+  const [replyText, setReplyText] = useState('')
   const [messages, setMessages] = [props.messages, props.setMessages]
   let reply = props.reply
 
@@ -142,22 +143,22 @@ const BottomBar = (props) => {
       _messages.push({ text: replyText })
     }
     setMessages(_messages)
-    setText('')
+    setReplyText('')
     Keyboard.dismiss()
   }
 
   function closeReply() {
     props.setReply(undefined)
-    setText('')
+    setReplyText('')
     Keyboard.dismiss()
   }
 
   return (
-    <View>
+    <View style = {{backgroundColor: COLORS.background}}>
       {reply != undefined ? <ReplyComponent message={reply} closeReply={closeReply} /> : null}
       <View style={styles.bottomBar}>
         <Icon name='add' size={30} style={styles.icon} />
-        <TextInput style={styles.textInput} editable={true} onChangeText={newText => setText(newText)} value={replyText} />
+        <TextInput style={styles.textInput} editable={true} onChangeText={newText => setReplyText(newText)} value={replyText} />
         {replyText == '' ? <Microphone {...props} /> : <Icon name='send' size={30} style={styles.icon} onPress={sendText} />}
         <Icon name='photo-camera' size={30} style={styles.icon} />
       </View>
@@ -169,22 +170,18 @@ const BottomBar = (props) => {
 
 const ReplyComponent = (props) => {
 
-  function play() {
-
-  }
-
   function closeReply() {
     props.closeReply()
   }
 
   return (
-    <View style={{ width: '100%', padding: 10, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: '#c2c2c2' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <View style={{ width: '100%', padding: 10, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: COLORS.incomingMessage }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 5 }}>
         <SenderText {...props} />
-        <Icon name={'close'} size={25} onPress={closeReply} />
+        <Icon name={'close'} size={20} onPress={closeReply} />
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center' }}>
-        <Icon name={'play-arrow'} size={25}/>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', paddingTop: 5 }}>
+        <Icon name={'mic'} size={20} style={{paddingRight: 5}}/>
         <Text numberOfLines={1} style={[{ flex: 1 }, styles.regularFont]}>{props.message.shortened_transcription_text}</Text>
       </View>
     </View>
@@ -276,22 +273,23 @@ const Message = (props) => {
  * VoiceMessage Component 
  */
 const VoiceMessage = (props) => {
+  const CIRCLE_RADIUS = 25
+
   const message = props.message
+  const duration = message.stop_time - message.start_time
+  const [currentTime, setCurrentTime] = useState(message.start_time)
+
   const [sound, setSound] = useState()
   const [isPlaying, setIsPlaying] = useState(false)
   const [isFinishedPlaying, setIsFinishedPlaying] = useState(true)  // also true before itx is played
   const [progressBarWidth, setProgressBarWidth] = useState(-1)
   const [showTranscription, setShowTranscription] = useState(false)
   const [remainingTimeText, setRemainingTimeText] = useState()
-  const CIRCLE_RADIUS = 25
   const [playAtPos, setPlayAtPos] = useState(-1) // if this is changed a useEffect hook skips in the voice message
   const timestamp_ref = useRef()
   const [playAtMillis, setPlayAtMillis] = useState(-1)
-  const messageIsCut = message.start_time || message.stop_time
-  const [duration, setDuration] = useState(message.stop_time - message.start_time)
   const [shouldStop, setShouldStop] = useState(false)
   const [bookmarks, setBookmarks] = useState([])
-  const [currentTime, setCurrentTime] = useState(message.start_time)
 
 
   function timeToString(millis) {
@@ -299,10 +297,6 @@ const VoiceMessage = (props) => {
     const seconds = ((millis % 60000) / 1000).toFixed(0);
     return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
   }
-
-  useEffect(() => {
-    setDuration(messageIsCut ? message.stop_time - message.start_time : -1)
-  }, [messageIsCut])
 
 
   const progressAnim = useRef(new Animated.Value(0)).current;  // also used for pan?
@@ -323,7 +317,7 @@ const VoiceMessage = (props) => {
       onPanResponderRelease: (event, gestureState) => {
         props.scrollview_ref.current.setNativeProps({ scrollEnabled: 'true' })
         progressAnim.flattenOffset();
-        timestamp_ref.current.measure((fx, fy, w, h, px, py) => { setPlayAtPos(fx) })  // TODO: this probably isn't the way to go
+        timestamp_ref.current.measure((fx, fy, w, h, px, py) => {setPlayAtPos(fx)})
       }
     })
   ).current;
@@ -337,9 +331,9 @@ const VoiceMessage = (props) => {
     if (playAtPos < 0 && playAtMillis < 0) return
 
     let setToMillis = playAtMillis < 0 && playAtPos >= 0 ? playAtPos / progressBarWidth * duration : playAtMillis
-    if (message.start_time >= 0) setToMillis = setToMillis // + message.start_time
-    set_time(setToMillis, message.stop_time ? message.stop_time : duration)
-    if (playAtMillis >= 0) animate_to_time(setToMillis, duration)  // only do this when setting time with word-click
+    set_time(setToMillis, message.stop_time)
+    if (playAtMillis >= 0) animate_to_time(setToMillis, duration)  // only doing this when setting time with word-click
+
     setPlayAtPos(-1)
     setPlayAtMillis(-1)
   }, [playAtPos, playAtMillis])
@@ -358,7 +352,7 @@ const VoiceMessage = (props) => {
   }
 
   const animate_to_time = (current_time, duration) => {
-    const time = message.start_time >= 0 ? current_time - message.start_time : current_time
+    const time = current_time - message.start_time
     const position = time / duration * progressBarWidth
     progressAnim.setValue(position)
   }
@@ -369,8 +363,8 @@ const VoiceMessage = (props) => {
 
   const source = message.audio
   const initialStatus = {
-    progressUpdateIntervalMillis: 250,  // TODO: maybe even less since this is responsible for stopping audio
-    positionMillis: message.start_time ? message.start_time : 0,  // TODO: change if it should start at another place
+    progressUpdateIntervalMillis: 100,
+    positionMillis: message.start_time,
     rate: 1,
   }
   const onPlaybackStatusUpdate = async (status) => {
@@ -382,13 +376,10 @@ const VoiceMessage = (props) => {
     }
 
     setIsPlaying(status.isPlaying)
-    if (status.durationMillis > 0 && !messageIsCut) {
-      setDuration(status.durationMillis)
-    }
     const isAtBeginning = (status.positionMillis == 0 || status.positionMillis == message.start_time)
-    const current_time_str = timeToString(message.start_time ? status.positionMillis - message.start_time : status.positionMillis)
-    const duration_str = timeToString(messageIsCut ? duration : status.durationMillis)
-    setRemainingTimeText(isAtBeginning ? duration_str : current_time_str)   // durationMillis doesn't work on web... but on ios
+    const current_time_str = timeToString(status.positionMillis - message.start_time)
+    const duration_str = timeToString(duration)
+    setRemainingTimeText(isAtBeginning ? duration_str : current_time_str) 
     if (status.didJustFinish) {
       setIsFinishedPlaying(true)
       reset_animation()
@@ -401,7 +392,6 @@ const VoiceMessage = (props) => {
         source,
         initialStatus,
         onPlaybackStatusUpdate,
-        //downloadFirst  // defaults to true
       )
       setSound(sound)
     }
@@ -416,7 +406,7 @@ const VoiceMessage = (props) => {
 
   useEffect(() => {
     async function stop() {
-      await sound.setStatusAsync({ shouldPlay: false, positionMillis: message.start_time ? message.start_time : 0 })
+      await sound.setStatusAsync({ shouldPlay: false, positionMillis: message.start_time})
     }
 
     if (shouldStop) {
@@ -427,14 +417,8 @@ const VoiceMessage = (props) => {
 
 
   async function play() {
-    if (isFinishedPlaying && false) {
-      await sound.replayAsync()
-      if (message.start_time) await setPositionAsync(message.start_time)
-      setIsFinishedPlaying(false)
-    } else {
-      await sound.playAsync()
-      setIsFinishedPlaying(false)
-    }
+    await sound.playAsync()
+    setIsFinishedPlaying(false)
 
     const { positionMillis, durationMillis } = await sound.getStatusAsync()
     start_animation(positionMillis, message.stop_time ? message.stop_time : durationMillis)
@@ -447,7 +431,7 @@ const VoiceMessage = (props) => {
 
   return (
     <View>
-      <View style={message.reply_to ? { backgroundColor: 'lightgrey', padding: 5, marginVertical: 10, borderRadius: 5 } : null}>
+      <View style={message.reply_to ? { backgroundColor: COLORS.incomingMessage, padding: 5, marginVertical: 10, borderRadius: 5 } : null}>
         <View style={styles.voiceMessage}>
           {
             isPlaying ?
@@ -462,7 +446,7 @@ const VoiceMessage = (props) => {
 
             {
               bookmarks.map((word, index) => {
-                let percent = "" + (Math.round((word.start_millis / duration) * 100, 2)) + "%";
+                const position = (word.start_millis - message.start_time) / duration * progressBarWidth
                 
                 function deleteBookmark(){
                   let _bookmarks = [...bookmarks]
@@ -471,15 +455,19 @@ const VoiceMessage = (props) => {
                 }
 
                 return (
-                  <Pressable onPress={() => setPlayAtMillis(word.start_millis)} 
+                  <Pressable 
+                    hitSlop={{left: 5, right: 5}}  // increases hittable space
+                    onPress={() => setPlayAtMillis(word.start_millis)} 
                     onLongPress={deleteBookmark}
-                  key={index} style={{
-                    position: 'absolute',
-                    height: '100%',
-                    width: 3,
-                    left: percent,
-                    backgroundColor: 'orange',
-                  }} />
+                    key={index} 
+                    style={{
+                      position: 'absolute',
+                      height: '100%',
+                      width: 3,
+                      left: position,
+                      backgroundColor: 'orange',
+                    }} 
+                  />
                 )
               })
             }
@@ -502,16 +490,6 @@ const VoiceMessage = (props) => {
           </View>
           <Text style={{ paddingLeft: 10 }}>{remainingTimeText}</Text>
         </View>
-        {/* <View style = {{flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginLeft: 50, alignItems: 'center'}}>
-          <Pressable 
-            style = {styles.transcriptionPressable}
-            onPress={() => {
-              setShowTranscription(!showTranscription)
-            }}>
-              <Text>{showTranscription ? 'hide transcription' : 'show transcription'}</Text>
-              <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}}/>
-          </Pressable>
-        </View> */}
         {
           showTranscription || true ?
             <Transcription bookmarks={bookmarks} setBookmarks={setBookmarks} {...props} playAtMillis={playAtMillis} setPlayAtMillis={setPlayAtMillis} currentTime={currentTime}/>
@@ -541,7 +519,6 @@ const Transcription = (props) => {
   const [summary, setSummary] = useState()
 
   useEffect(() => {
-    console.log("loading transcription for: " + JSON.stringify(props.message))
     if (!transcription)
       fetchTranscription(props.message.filename, props.message.audio, props.message.uid)
         .then(async (response) => { setTranscription(await response.json()) })
@@ -560,16 +537,8 @@ const Transcription = (props) => {
 
   if (!transcription)
     return (
-      <Text>Loading replies ...</Text>
+      <Text>loading transcription ...</Text>
     )
-
-  // if (!showTranscription)
-  //   return (
-  //     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-  //       <Text numberOfLines={1} style={[styles.regularFont]}>{props.message.shortened_transcription_text ? props.message.shortened_transcription_text : transcription.text}</Text>
-  //       <Icon name="keyboard-arrow-down" size={30} onPress={() => { setShowTranscription(!showTranscription) }} />
-  //     </View>
-  //   )
 
 
   return (
@@ -579,17 +548,19 @@ const Transcription = (props) => {
           showSummary && summary ?
             <Text style={styles.regularFont}>{summary.summary}</Text>
             :
-            <TranscriptionWordwise {...props} transcription={transcription} />
+            <TranscriptionWordwise {...props} transcription={transcription} showTranscriptionState = {[showTranscription, setShowTranscription]}/>
         }
         {/* <Icon name="keyboard-arrow-up" size={30} onPress={() => { setShowTranscription(!showTranscription); setShowSummary(false) }} /> */}
       </View>
-      {props.message.reply_to ? null :
+      {props.message.reply_to || !showTranscription ? null :
         <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 20 }}>
           <Pressable
-            style={styles.transcriptionPressable}
+            style={[styles.summaryPressable]}
             onPress={() => {
               setShowSummary(!showSummary)
             }}>
+              
+            <Icon name={showSummary ? 'expand' : 'compress'} size={20}  style={{ paddingRight: 5 }}/>
             <Text>{showSummary ? 'show original' : 'show summary'}</Text>
           </Pressable>
         </View>
@@ -609,22 +580,15 @@ const TranscriptionWordwise = (props) => {
   const [currentWord, setCurrentWord] = useState()
   const lyrics_ref = useRef()
   const [viewableWords, setViewableWords] = useState([])
-  const [showTranscription, setShowTranscription] = useState(false)
-
-  // const words_in_cut = words.map((word, index) => {
-  //   const isInCut = !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
-  //   if (isInCut) return word
-  // })
+  const [showTranscription, setShowTranscription] = props.showTranscriptionState
 
   const words_in_cut = words.filter((word) => {
     return !messageIsCut || (props.message.start_time <= word.start_time && props.message.stop_time >= word.stop_time)
   })
 
-  console.log(words_in_cut)
-
   useEffect(() => {
     // find out what word is currently spoken
-    const newCurrentWord = words.find(word => word.start_time <= props.currentTime && props.currentTime <= word.stop_time)
+    const newCurrentWord = words.find(word => word.start_time <= props.currentTime && props.currentTime < word.stop_time)
     if (newCurrentWord != undefined) setCurrentWord(newCurrentWord)
   }, [props.currentTime])
 
@@ -700,13 +664,14 @@ const TranscriptionWordwise = (props) => {
         onLongPress={() => {
           toggleWordSelection(index)
         }}
-        style={{ backgroundColor: isSelected ? 'lightblue' : 'transparent' }}>
-        <Text style={{fontSize:15,color: 'black', fontWeight: word === currentWord ? 'normal' : 'normal'}}>{word.word + " "}</Text>
+        style={{ backgroundColor: isSelected ? COLORS.highlight : 'transparent' }}>
+        <Text style={{fontSize:15, color: word === currentWord ? 'black' : 'black', fontWeight: word === currentWord ? 'normal' : 'normal'}}>{word.word + " "}</Text>
       </Pressable>
     )
   }
 
   return (
+    <View style={{flex: 1, flexDirection: 'column'}}>
     <View style = {{flex: 1, flexDirection: 'row'}}>
       {showTranscription ? 
         <View style={{flex: 1,flexDirection: 'row', flexWrap: 'wrap'}}>
@@ -715,9 +680,9 @@ const TranscriptionWordwise = (props) => {
       :
         <FlatList
           onViewableItemsChanged={handleViewableItemsChanges}
-          viewabilityConfig={{
-            itemVisiblePercentThreshold: 100
-          }}
+          // viewabilityConfig={{
+          //   itemVisiblePercentThreshold: 100
+          // }}
           ref = {lyrics_ref}
           data = {words_in_cut}
           horizontal = {true}
@@ -730,33 +695,53 @@ const TranscriptionWordwise = (props) => {
         <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}} onPress={() => setShowTranscription(!showTranscription)}/>
       } 
       <View>
-      {
+      </View>
+    </View>
+    {
         selectingWords ?
-          <View style={{ flexDirection: 'row-reverse' }}>
-            <Icon name="reply" size={30} style={{ alignSelf: 'flex-end' }}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderRadius: 5, marginVertical: 10 }}>
+            <Pressable
+              style={[styles.highlighedPressables]}
               onPress={() => {
-                let shortended_message = {...props.message}
-                shortended_message.reply_to = props.message.sender
-                shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
-                shortended_message.start_time = words[selectionEndpoints.first].start_time
-                shortended_message.stop_time = words[selectionEndpoints.last].stop_time
-                shortended_message.sender = undefined // TODO: mark as reply
-                setSelectionEndpoints({ first: -1, last: -1 })
-                setReply(shortended_message)
-              }} />
-            <Icon name='bookmark' size={30} style={{ alignSelf: 'flex-end' }} onPress={() => {
+                  let shortended_message = {...props.message}
+                  shortended_message.reply_to = props.message.sender
+                  shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
+                  shortended_message.start_time = words[selectionEndpoints.first].start_time
+                  shortended_message.stop_time = words[selectionEndpoints.last].stop_time
+                  shortended_message.sender = undefined // TODO: mark as reply
+                  setSelectionEndpoints({ first: -1, last: -1 })
+                  setReply(shortended_message)
+                }} >
+              <Icon name="reply" size={20} style={{ paddingRight: 5}}/>
+              <Text>Reply</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.highlighedPressables}
+              onPress={() => {
               let _bookmarks = [...props.bookmarks]
               let word = words[selectionEndpoints.first]
               word.start_millis = word.start_time
               _bookmarks.push(word)
               setSelectionEndpoints({ first: -1, last: -1 })
               props.setBookmarks(_bookmarks)
-            }}></Icon>
+            }}>
+             <Icon name='bookmark' size={20} style={{ paddingRight: 5 }}/>
+             <Text>Bookmark</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.highlighedPressables}
+              onPress={() => {
+                setSelectionEndpoints({ first: -1, last: -1 })
+              }}>
+             <Icon name='cancel' size={20}  style={{ paddingRight: 5 }}/>
+             <Text>Cancel</Text>
+            </Pressable>
           </View>
           :
           null
       }
-      </View>
     </View>
   )
 }
@@ -775,151 +760,16 @@ const TextMessage = (props) => {
 }
 
 const SenderText = (props) => {
-  if (props.message.sender != undefined || props.message.reply_to != undefined) {
+  if (props.message.sender != undefined || props.message.reply_to != undefined) 
     return (
       <Text style={styles.senderFont}>
         {props.message.reply_to ? "Reply to: " + props.message.reply_to : props.message.sender}
       </Text>
     )
-  } else return (
-    <Text style={styles.senderFont}>Me: </Text>)
+    
+  return <View/> 
+  // return (
+  //   <Text style={styles.senderFont}>Me: </Text>
+  // )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'beige',
-  },
-
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start', // from left to right
-    alignItems: 'center', // center vertically
-
-    paddingHorizontal: 10,
-
-    height: 80,
-    width: '100%',
-    backgroundColor: 'lightgrey',
-  },
-
-  replyTextInput: {
-    backgroundColor: 'lightgrey',
-    flexDirection: 'row',
-    padding: 10,
-
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-  },
-
-  messagesContainer: {
-    flex: 1,
-    backgroundColor: 'beige',
-    padding: 5
-  },
-
-  groupTextContainer: {
-    flex: 1,
-    flexDirection: 'column',
-    justifyContent: 'center',
-    padding: 10,
-    margin: 10,
-  },
-
-  voiceMessage: {
-    width: '100%',
-
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-  },
-  textMessage: {
-    width: '80%',
-
-    marginVertical: 5,
-    padding: 10,
-    borderRadius: 10,
-  },
-  incomingMessage: {
-    backgroundColor: '#c2c2c2',
-    alignSelf: 'flex-start'
-  },
-  outgoingMessage: {
-    backgroundColor: '#95b5e8',
-    alignSelf: 'flex-end'
-  },
-
-  bottomBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-
-    paddingHorizontal: 10,
-    height: 80,
-    width: '100%',
-
-    backgroundColor: 'white',
-  },
-
-  textInput: {
-    flex: 1,
-
-    margin: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-
-    borderWidth: 0.5,
-    backgroundColor: 'white',
-    borderRadius: 20,
-  },
-
-  // Pressables
-  transcriptionPressable: {
-    flexGrow: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    borderWidth: 0.5,
-    padding: 5,
-    borderRadius: 5,
-  },
-
-
-  // Separator
-  separator: {
-    flex: 1,
-    height: 0.5,
-    margin: 20,
-    backgroundColor: 'grey',
-  },
-
-  // Icons
-  icon: {
-    padding: 10
-  },
-  groupIcon: {
-    backgroundColor: 'grey',
-    padding: 10,
-    borderRadius: 40,  // padding + size = round
-  },
-  mic_rec: {
-    padding: 10,
-    color: 'green'
-  },
-
-  // Fonts
-  regularFont: {
-    fontSize: 15,
-  },
-  senderFont: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  groupName: {
-    fontSize: 17,
-    fontWeight: '500',
-  },
-  groupParticipants: {
-    fontSize: 15,
-  },
-});
