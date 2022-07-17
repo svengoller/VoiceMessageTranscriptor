@@ -13,12 +13,12 @@ export const mockup_messages = [
         text: 'Yeah, I think so too!'
     },
     {
-        sender: 'Maurice',
+        sender: 'Sven',
         // is a voice message therefore no text
-        audio: require('./assets/voice_messages/ted_talk2.wav'),
-        filename: "ted_talk2.wav",
+        audio: require('./assets/voice_messages/1658058389100.wav'),
+        filename: "1658058389100.wav",
         start_time: 0,
-        stop_time: 13000,
+        stop_time: 20330,
     },
     // {
         // is a voice message therefore no text
