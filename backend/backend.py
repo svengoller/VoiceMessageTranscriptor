@@ -72,6 +72,7 @@ def summarize(text):
             response = db[text]
         data = response.json()
         res_text = data['completions'][0]['data']['text']
+        if (res_text[0] == ' '): res_text = res_text[1:]
         print("Summary: " + res_text)
         return res_text
 
