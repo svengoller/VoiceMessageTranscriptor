@@ -13,7 +13,7 @@ import { audio_mode, RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from './AudioConfig
 /******************** LOGIC  ******************/
 Audio.setAudioModeAsync(audio_mode)
 
-const flask_ip = 'http://192.168.2.104:5001'  // SVEN: My local ip adress of flask (for using it on the phone)
+const flask_ip = 'https://allesserver.de:8080'
 
 function fetchSummary(text) {
   return fetch(flask_ip + '/summarize', {
@@ -680,9 +680,9 @@ const TranscriptionWordwise = (props) => {
       :
         <FlatList
           onViewableItemsChanged={handleViewableItemsChanges}
-          // viewabilityConfig={{
-          //   itemVisiblePercentThreshold: 100
-          // }}
+          viewabilityConfig={{
+            itemVisiblePercentThreshold: 100
+          }}
           ref = {lyrics_ref}
           data = {words_in_cut}
           horizontal = {true}
@@ -691,7 +691,7 @@ const TranscriptionWordwise = (props) => {
           renderItem = {WordComponent}
         />
       }
-      {viewableWords.at(-1) === words_in_cut.at(-1) ? null : 
+      {viewableWords.at(-1) === words_in_cut.at(-1) && viewableWords.at(0) === words_in_cut.at(0) ? null : 
         <Icon name={showTranscription ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={15} style = {{marginLeft: 5}} onPress={() => setShowTranscription(!showTranscription)}/>
       } 
       <View>
