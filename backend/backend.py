@@ -36,7 +36,7 @@ def summarize(text):
                                         "prompt": yn_template + text + "\nsummary:",
                                         "numResults": 1,
                                         "maxTokens": 49,
-                                        "temperature": 0.2,
+                                        "temperature": 0.1,
                                         "topKReturn": 0,
                                         "topP": 1,
                                         "countPenalty": {
@@ -122,7 +122,7 @@ def summarize_api():
 def speech_to_text_api():
     print('transcribing...')
     audio = "data/" + request.get_json(force = True)['filename']
-    transcription_dict = speech_to_text_local_audio(config_wav, audio)
+    transcription_dict = speech_to_text_local_audio(config_wav2, audio)
     return json.dumps(transcription_dict, default=str)
 
 
