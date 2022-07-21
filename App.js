@@ -679,6 +679,7 @@ const TranscriptionWordwise = (props) => {
         </View>
       :
         <FlatList
+          onScrollToIndexFailed={() => {}}
           onViewableItemsChanged={handleViewableItemsChanges}
           viewabilityConfig={{
             itemVisiblePercentThreshold: 100
