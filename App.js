@@ -705,7 +705,7 @@ const TranscriptionWordwise = (props) => {
               style={[styles.highlighedPressables]}
               onPress={() => {
                   let shortended_message = {...props.message}
-                  shortended_message.reply_to = props.message.sender
+                  shortended_message.reply_to = props.message.sender ? props.message.sender : 'Me'
                   shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
                   shortended_message.start_time = words[selectionEndpoints.first].start_time
                   shortended_message.stop_time = words[selectionEndpoints.last].stop_time
