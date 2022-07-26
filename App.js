@@ -369,7 +369,6 @@ const VoiceMessage = (props) => {
   }
   const onPlaybackStatusUpdate = async (status) => {
     setCurrentTime(status.positionMillis)
-    // TODO: maybe animations? Stopping if it is after a certain point (cutting)
     if (status.positionMillis >= message.stop_time) {
       setShouldStop(true)
       setIsFinishedPlaying(true)
@@ -477,7 +476,7 @@ const VoiceMessage = (props) => {
                 width: CIRCLE_RADIUS / 3, height: CIRCLE_RADIUS, borderRadius: CIRCLE_RADIUS, backgroundColor: 'red',
                 transform: [{
                   translateX: progressAnim.interpolate({
-                    inputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100], // TODO: maybe a dirty workaround :o
+                    inputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100],
                     outputRange: [0, progressBarWidth > 0 ? progressBarWidth : 100],
                     extrapolate: 'clamp'
                   })
@@ -655,7 +654,7 @@ const TranscriptionWordwise = (props) => {
       <Pressable
         key={index}
         onPress={() => {
-          if (isSelectable || selectingWords)  // TODO: vllt einschränken (z.B. is unSelectable)
+          if (isSelectable || selectingWords) 
             toggleWordSelection(index)
           else if (!selectingWords) {
             props.setPlayAtMillis(start_millis)
@@ -706,10 +705,10 @@ const TranscriptionWordwise = (props) => {
               onPress={() => {
                   let shortended_message = {...props.message}
                   shortended_message.reply_to = props.message.sender ? props.message.sender : 'Me'
-                  shortended_message.shortened_transcription_text = concatWords()  // TODO: remove this ugly workaround
+                  shortended_message.shortened_transcription_text = concatWords()
                   shortended_message.start_time = words[selectionEndpoints.first].start_time
                   shortended_message.stop_time = words[selectionEndpoints.last].stop_time
-                  shortended_message.sender = undefined // TODO: mark as reply
+                  shortended_message.sender = undefined 
                   setSelectionEndpoints({ first: -1, last: -1 })
                   setReply(shortended_message)
                 }} >
