@@ -13,8 +13,8 @@ from flask import Flask, request
 from flask_cors import CORS, cross_origin
 
 # Google Authentication/API
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = ***REMOVED***
-api_key = ***REMOVED***  # Ai21 Api Key
+# os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = # path to google api key json
+# api_key =  # Ai21 Api Key
 
 
 
